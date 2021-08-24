@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -53,6 +54,24 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			"domain": domain,
 			"token":  fmt.Sprintf("[%d characters]", len(token)),
 		}).Info("Configuration")
+
+		net_iface, err := net.InterfaceByName(iface)
+		if err != nil {
+			log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
+		}
+		log.WithField("interface", net_iface).Debug("Found the interface")
+		addresses, err := net_iface.Addrs()
+		if err != nil {
+			log.WithError(err).Fatal("Couldn't get interface addresses")
+		}
+		public_ipv6_addresses := make([]string, len(addresses)*2)
+		for _, addr := range addresses {
+			log.WithField("address", addr).Debug("Found address")
+			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() && ipnet.IP.To4() == nil {
+				public_ipv6_addresses = append(public_ipv6_addresses, ipnet.IP.String())
+			}
+		}
+		log.WithField("addresses", public_ipv6_addresses).Info("Found public IPv6 addresses")
 	},
 }
 
