@@ -22,13 +22,16 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/cloudflare/cloudflare-go"
 	"github.com/spf13/viper"
 )
 
@@ -55,23 +58,51 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			"token":  fmt.Sprintf("[%d characters]", len(token)),
 		}).Info("Configuration")
 
-		net_iface, err := net.InterfaceByName(iface)
+		addr := getIpv6Address(iface)
+
+		api, err := cloudflare.NewWithAPIToken(token)
 		if err != nil {
-			log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
+			log.WithError(err).Fatal("Couldn't create API client")
 		}
-		log.WithField("interface", net_iface).Debug("Found the interface")
-		addresses, err := net_iface.Addrs()
+
+		ctx := context.Background()
+
+		zoneId, err := api.ZoneIDByName(getZoneFromDomain(domain))
 		if err != nil {
-			log.WithError(err).Fatal("Couldn't get interface addresses")
+			log.WithError(err).Fatal("Couldn't get ZoneID")
 		}
-		public_ipv6_addresses := make([]string, len(addresses)*2)
-		for _, addr := range addresses {
-			log.WithField("address", addr).Debug("Found address")
-			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() && ipnet.IP.To4() == nil {
-				public_ipv6_addresses = append(public_ipv6_addresses, ipnet.IP.String())
+
+		dnsRecordFilter := cloudflare.DNSRecord{Type: "AAAA", Name: domain}
+		existingDnsRecords, err := api.DNSRecords(ctx, zoneId, dnsRecordFilter)
+		if err != nil {
+			log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
+		}
+		log.WithField("records", existingDnsRecords).Debug("Found DNS records")
+
+		desiredDnsRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: 60}
+
+		if len(existingDnsRecords) == 0 {
+			log.WithField("record", desiredDnsRecord).Info("Create new DNS record")
+			_, err := api.CreateDNSRecord(ctx, zoneId, desiredDnsRecord)
+			if err != nil {
+				log.WithError(err).Fatal("Couldn't create DNS record")
 			}
+		} else if len(existingDnsRecords) == 1 {
+			// TODO do not update if there are no changes
+			log.WithFields(log.Fields{
+				"new": desiredDnsRecord,
+				"old": existingDnsRecords[0],
+			}).Info("Updating existing DNS record")
+			_, err := api.CreateDNSRecord(ctx, zoneId, desiredDnsRecord)
+			if err != nil {
+				log.WithError(err).WithFields(log.Fields{
+					"new": desiredDnsRecord,
+					"old": existingDnsRecords[0],
+				}).Fatal("Couldn't update DNS record")
+			}
+		} else {
+			// TODO cleanup records
 		}
-		log.WithField("addresses", public_ipv6_addresses).Info("Found public IPv6 addresses")
 	},
 }
 
@@ -115,4 +146,33 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		log.Info("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+func getIpv6Address(iface string) string {
+	net_iface, err := net.InterfaceByName(iface)
+	if err != nil {
+		log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
+	}
+	log.WithField("interface", net_iface).Debug("Found the interface")
+	addresses, err := net_iface.Addrs()
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't get interface addresses")
+	}
+	public_ipv6_addresses := []string{}
+	for _, addr := range addresses {
+		log.WithField("address", addr).Debug("Found address")
+		if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() && ipnet.IP.To4() == nil {
+			public_ipv6_addresses = append(public_ipv6_addresses, ipnet.IP.String())
+		}
+	}
+	if len(public_ipv6_addresses) == 0 {
+		log.Fatal("No public IPv6 addresses found")
+	}
+	log.WithField("addresses", public_ipv6_addresses).Infof("Found %d public IPv6 addresses, use the first one", len(public_ipv6_addresses))
+	return public_ipv6_addresses[0]
+}
+
+func getZoneFromDomain(domain string) string {
+	parts := strings.Split(domain, ".")
+	return strings.Join(parts[len(parts)-2:], ".")
 }
