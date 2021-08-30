@@ -1,0 +1,6 @@
+[Unit]
+Description=Dynamic IPv6 DNS for Cloudflare
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cloudflare-dynamic-dns --systemd --config=/etc/cloudflare-dynamic-dns/config.d/%I.yaml

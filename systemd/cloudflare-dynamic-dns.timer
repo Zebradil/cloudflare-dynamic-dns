@@ -1,0 +1,9 @@
+[Unit]
+Description=Run cloudflare-dynamic-dns every 5 minutes and on boot
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5m
+
+[Install]
+WantedBy=timers.target
