@@ -48,14 +48,16 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Debug("Root command invoked")
 		var (
-			iface  = viper.GetString("iface")
-			domain = viper.GetString("domain")
-			token  = viper.GetString("token")
+			iface   = viper.GetString("iface")
+			domain  = viper.GetString("domain")
+			token   = viper.GetString("token")
+			systemd = viper.GetBool("systemd")
 		)
 		log.WithFields(log.Fields{
-			"iface":  iface,
-			"domain": domain,
-			"token":  fmt.Sprintf("[%d characters]", len(token)),
+			"iface":   iface,
+			"domain":  domain,
+			"token":   fmt.Sprintf("[%d characters]", len(token)),
+			"systemd": systemd,
 		}).Info("Configuration")
 
 		addr := getIpv6Address(iface)
