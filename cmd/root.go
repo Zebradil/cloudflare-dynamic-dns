@@ -89,11 +89,12 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			}
 		} else if len(existingDnsRecords) == 1 {
 			// TODO do not update if there are no changes
+			//      Which fields to compare?
 			log.WithFields(log.Fields{
 				"new": desiredDnsRecord,
 				"old": existingDnsRecords[0],
 			}).Info("Updating existing DNS record")
-			_, err := api.CreateDNSRecord(ctx, zoneId, desiredDnsRecord)
+			err := api.UpdateDNSRecord(ctx, zoneId, existingDnsRecords[0].ID, desiredDnsRecord)
 			if err != nil {
 				log.WithError(err).WithFields(log.Fields{
 					"new": desiredDnsRecord,
