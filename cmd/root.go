@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -34,6 +35,8 @@ import (
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/spf13/viper"
 )
+
+const state_filename string = "state"
 
 var cfgFile string
 
@@ -48,19 +51,32 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Debug("Root command invoked")
 		var (
-			iface   = viper.GetString("iface")
-			domain  = viper.GetString("domain")
-			token   = viper.GetString("token")
-			systemd = viper.GetBool("systemd")
+			iface          = viper.GetString("iface")
+			domain         = viper.GetString("domain")
+			token          = viper.GetString("token")
+			systemd        = viper.GetBool("systemd")
+			state_filepath = ""
 		)
+
+		if systemd {
+			state_filepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), state_filename)
+		}
+
 		log.WithFields(log.Fields{
-			"iface":   iface,
-			"domain":  domain,
-			"token":   fmt.Sprintf("[%d characters]", len(token)),
-			"systemd": systemd,
+			"iface":          iface,
+			"domain":         domain,
+			"token":          fmt.Sprintf("[%d characters]", len(token)),
+			"systemd":        systemd,
+			"state_filepath": state_filepath,
 		}).Info("Configuration")
 
 		addr := getIpv6Address(iface)
+
+		if systemd && addr == getOldIpv6Address(state_filepath) {
+			log.Info("The address hasn't changed, nothing to do")
+			log.Info(fmt.Sprintf("To bypass this check run without --systemd flag or remove the state file: %s", state_filepath))
+			return
+		}
 
 		api, err := cloudflare.NewWithAPIToken(token)
 		if err != nil {
@@ -105,6 +121,7 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		} else {
 			// TODO cleanup records
 		}
+		setOldIpv6Address(state_filepath, addr)
 	},
 }
 
@@ -122,6 +139,8 @@ func init() {
 	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address")
 	rootCmd.Flags().String("domain", "", "Domain name to assign the IPv6 address to")
 	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights")
+	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd
+In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API`)
 
 	viper.BindPFlags(rootCmd.Flags())
 }
@@ -177,4 +196,20 @@ func getIpv6Address(iface string) string {
 func getZoneFromDomain(domain string) string {
 	parts := strings.Split(domain, ".")
 	return strings.Join(parts[len(parts)-2:], ".")
+}
+
+func getOldIpv6Address(state_filepath string) string {
+	ipv6, err := os.ReadFile(state_filepath)
+	if err != nil {
+		log.WithError(err).Warn("Can't get old ipv6 address")
+		return "INVALID"
+	}
+	return string(ipv6)
+}
+
+func setOldIpv6Address(state_filepath string, ipv6 string) {
+	err := os.WriteFile(state_filepath, []byte(ipv6), 0644)
+	if err != nil {
+		log.WithError(err).Error("Can't write state file")
+	}
 }
