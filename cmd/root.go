@@ -103,6 +103,7 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			}
 		} else {
 			// TODO cleanup records
+			log.Fatal("Not implemented: the case when there are multiple AAAA records already")
 		}
 	},
 }
