@@ -1,6 +1,14 @@
 [Unit]
 Description=Dynamic IPv6 DNS for Cloudflare
+Documentation=https://github.com/Zebradil/cloudflare-dynamic-dns/blob/master/README.md
+Wants=network-online.target
+After=network-online.target nss-lookup.target
+
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/cloudflare-dynamic-dns --systemd --config=/etc/cloudflare-dynamic-dns/config.d/%I.yaml
+StateDirectory=cloudflare-dynamic-dns
+
+[Install]
+WantedBy=multi-user.target
