@@ -7,7 +7,7 @@ url='https://github.com/Zebradil/cloudflare-dynamic-dns'
 license=('MIT')
 makedepends=('go')
 source=("${pkgname}-${pkgver}::https://github.com/zebradil/${pkgname}/archive/${pkgver}.tar.gz")
-sha256sums=('1337deadbeef')
+sha256sums=('90c1d5ce6a2ecdd8f33e9416ee7d18c6deaddb2cbe3ce801839e77b628e29f21')
 
 prepare(){
   cd "$pkgname-$pkgver"

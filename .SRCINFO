@@ -7,6 +7,6 @@ pkgbase = cloudflare-dynamic-dns
 	license = MIT
 	makedepends = go
 	source = cloudflare-dynamic-dns-1.0.0::https://github.com/zebradil/cloudflare-dynamic-dns/archive/1.0.0.tar.gz
-	sha256sums = 1337deadbeef
+	sha256sums = 90c1d5ce6a2ecdd8f33e9416ee7d18c6deaddb2cbe3ce801839e77b628e29f21
 
 pkgname = cloudflare-dynamic-dns
