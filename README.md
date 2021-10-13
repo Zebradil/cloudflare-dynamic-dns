@@ -1,5 +1,9 @@
 # Dynamic DNS client for Cloudflare
 
+A small tool for updating IPv6 address at Cloudflare DNS with the currently detected address of the specified network interface.
+
+It is provided with systemd service and timer files for automation.
+
 ```
 Updates AAAA records at Cloudflare according to the current IPv6 address.
 
@@ -19,12 +23,45 @@ Flags:
       --token string    Cloudflare API token with DNS edit access rights
 ```
 
+## Installation
+
+### AUR
+
+There is a [package in AUR](https://aur.archlinux.org/packages/cloudflare-dynamic-dns/), which can be used on Arch-based distros.
+
+```shell
+yay -S cloudflare-dynamic-dns
+```
+
+### Manual
+
+```shell
+git clone https://github.com/Zebradil/cloudflare-dynamic-dns.git
+# OR
+curl -sL https://github.com/Zebradil/cloudflare-dynamic-dns/archive/refs/heads/master.tar.gz | tar xz
+
+cd cloudflare-dynamic-dns-master
+go build -o cloudflare-dynamic-dns main.go
+```
+
+Now you can run `cloudflare-dynamic-dns` manually (see [Usage](#usage) section).
+
+If you want to do some automation with systemd, `cloudflare-dynamic-dns` has to be installed system-wide
+(it *is* possible to run systemd timer and service without root privileges, but I do not provide ready-to-use configuration for this yet):
+
+```shell
+sudo install -Dm755 cloudflare-dynamic-dns -t /usr/bin 
+sudo install -Dm644 systemd/* -t /usr/lib/systemd/system
+sudo install -m700 -d /etc/cloudflare-dynamic-dns/config.d
+```
+
 ## Usage
 
 ### Run manually
 
-1. Clone the repo (releases and packages are WIP)
-2. Run `go run main.go --domain example.com --iface eth0 --token cloudflare-api-token`
+0. Follow steps from [Installation](#instllation) section
+1. Run `./cloudflare-dynamic-dns --domain example.com --iface eth0 --token cloudflare-api-token`
+   - NOTE: instead of compiling `cloudflare-dynamic-dns` binary, it can be replaced with `go run main.go` in the command above.
 
 Instead of specifying command line arguments, it is possible to create `~/.cloudflare-dynamic-dns.yaml` with the following structure:
 
@@ -34,23 +71,22 @@ token: cloudflare-api-token
 domain: example.com
 ```
 
-And then run `go run main.go` (without arguments).
+And then run `./cloudflare-dynamic-dns` (or `go run main.go`) without arguments.
 Or put the configuration in any place and specify it with `--config` flag (that's not tested):
 
-```
-go run main.go --config /any/place/config.yaml
+```shell
+./cloudflare-dynamic-dns --config /any/place/config.yaml
 ```
 
-### Systemd service and timer (not tested yet)
+### Systemd service and timer
 
-It is possible to run `cloudflare-dynamic-dns` periodically via systemd. Requires privileged access to the system.
+It is possible to run `cloudflare-dynamic-dns` periodically via systemd.
+This requires privileged access to the system.
+Make sure that required systemd files are installed (see [Installation](#instllation) section for details).
 
 ```shell
-# 1. Copy `systemd/cloudflare-dynamic-dns.service` and `systemd/cloudflare-dynamic-dns.timer` to `/usr/lib/systemd/system`
-sudo cp systemd/* /usr/lib/systemd/system/
-
-# 2. Create configuration file `/etc/cloudflare-dynamic-dns/config.d/<name>.yaml`
-#    For exaple (replace the values according to your needs):
+# 1. Create configuration file `/etc/cloudflare-dynamic-dns/config.d/<name>.yaml`
+#    For example (I use "example.com" as <name>, replace the values according to your needs):
 sudo tee -a /etc/cloudflare-dynamic-dns/config.d/example.com.yaml <<EOF
 iface: eth0
 token: cloudflare-api-token
@@ -64,3 +100,5 @@ sudo systemd enable --now cloudflare-dynamic-dns@example.com.timer
 This way (via running multiple timers) you can use multiple configurations at the same time.
 
 By default a timer is triggered one minute after boot and then every 5 minutes. It is not configurable currently.
+
+To avoid unnecessary requests to Cloudflare API state files are used. They're created in `/var/lib/cloudflare-dynamic-dns/` and named after `domain` configuration variable in corresponding config files. A state file contains IPv6 address which was set in a Cloudflare DNS AAAA record during the last successful run. If the current IPv6 address is the same as in the state file, no additional API requests are done.
