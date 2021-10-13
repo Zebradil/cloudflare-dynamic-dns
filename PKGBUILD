@@ -1,8 +1,8 @@
 pkgname=cloudflare-dynamic-dns
 pkgver=1.0.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Updates AAAA records at Cloudflare according to the current IPv6 address'
-arch=('x86_64')
+arch=('any')
 url='https://github.com/Zebradil/cloudflare-dynamic-dns'
 license=('MIT')
 makedepends=('go')
