@@ -36,8 +36,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-const state_filename string = "state"
-
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
@@ -59,7 +57,7 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		)
 
 		if systemd {
-			state_filepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), state_filename)
+			state_filepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), domain)
 		}
 
 		log.WithFields(log.Fields{
