@@ -9,27 +9,28 @@ makedepends=('go')
 source=("${pkgname}-${pkgver}::https://github.com/zebradil/${pkgname}/archive/${pkgver}.tar.gz")
 sha256sums=('90c1d5ce6a2ecdd8f33e9416ee7d18c6deaddb2cbe3ce801839e77b628e29f21')
 
-prepare(){
-  cd "$pkgname-$pkgver"
-  mkdir -p build/
+prepare() {
+    cd "$pkgname-$pkgver"
+    mkdir -p build/
 }
 
 build() {
-  cd "$pkgname-$pkgver"
-  export CGO_CPPFLAGS="${CPPFLAGS}"
-  export CGO_CFLAGS="${CFLAGS}"
-  export CGO_CXXFLAGS="${CXXFLAGS}"
-  export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
-  go build -o build ./cmd/...
+    cd "$pkgname-$pkgver"
+    export CGO_CPPFLAGS="${CPPFLAGS}"
+    export CGO_CFLAGS="${CFLAGS}"
+    export CGO_CXXFLAGS="${CXXFLAGS}"
+    export CGO_LDFLAGS="${LDFLAGS}"
+    export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+    go build -o build/$pkgname main.go
 }
 
 check() {
-  cd "$pkgname-$pkgver"
-  go test ./...
+    cd "$pkgname-$pkgver"
+    go test ./...
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-  install -Dm755 build/$pkgname "$pkgdir"/usr/bin/$pkgname
+    cd "$pkgname-$pkgver"
+    install -Dm755 build/$pkgname "$pkgdir"/usr/bin/$pkgname
+    install -Dm644 systemd/* -t "$pkgdir"/usr/lib/systemd/system
 }
