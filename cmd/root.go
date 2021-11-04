@@ -49,30 +49,30 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Debug("Root command invoked")
 		var (
-			iface          = viper.GetString("iface")
-			domain         = viper.GetString("domain")
-			token          = viper.GetString("token")
-			systemd        = viper.GetBool("systemd")
-			state_filepath = ""
+			iface         = viper.GetString("iface")
+			domain        = viper.GetString("domain")
+			token         = viper.GetString("token")
+			systemd       = viper.GetBool("systemd")
+			stateFilepath = ""
 		)
 
 		if systemd {
-			state_filepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), domain)
+			stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), domain)
 		}
 
 		log.WithFields(log.Fields{
-			"iface":          iface,
-			"domain":         domain,
-			"token":          fmt.Sprintf("[%d characters]", len(token)),
-			"systemd":        systemd,
-			"state_filepath": state_filepath,
+			"iface":         iface,
+			"domain":        domain,
+			"token":         fmt.Sprintf("[%d characters]", len(token)),
+			"systemd":       systemd,
+			"stateFilepath": stateFilepath,
 		}).Info("Configuration")
 
 		addr := getIpv6Address(iface)
 
-		if systemd && addr == getOldIpv6Address(state_filepath) {
+		if systemd && addr == getOldIpv6Address(stateFilepath) {
 			log.Info("The address hasn't changed, nothing to do")
-			log.Info(fmt.Sprintf("To bypass this check run without --systemd flag or remove the state file: %s", state_filepath))
+			log.Info(fmt.Sprintf("To bypass this check run without --systemd flag or remove the state file: %s", stateFilepath))
 			return
 		}
 
@@ -83,45 +83,45 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 
 		ctx := context.Background()
 
-		zoneId, err := api.ZoneIDByName(getZoneFromDomain(domain))
+		zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
 		if err != nil {
 			log.WithError(err).Fatal("Couldn't get ZoneID")
 		}
 
 		dnsRecordFilter := cloudflare.DNSRecord{Type: "AAAA", Name: domain}
-		existingDnsRecords, err := api.DNSRecords(ctx, zoneId, dnsRecordFilter)
+		existingDNSRecords, err := api.DNSRecords(ctx, zoneID, dnsRecordFilter)
 		if err != nil {
 			log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
 		}
-		log.WithField("records", existingDnsRecords).Debug("Found DNS records")
+		log.WithField("records", existingDNSRecords).Debug("Found DNS records")
 
-		desiredDnsRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: 60}
+		desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: 60}
 
-		if len(existingDnsRecords) == 0 {
-			log.WithField("record", desiredDnsRecord).Info("Create new DNS record")
-			_, err := api.CreateDNSRecord(ctx, zoneId, desiredDnsRecord)
+		if len(existingDNSRecords) == 0 {
+			log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
+			_, err := api.CreateDNSRecord(ctx, zoneID, desiredDNSRecord)
 			if err != nil {
 				log.WithError(err).Fatal("Couldn't create DNS record")
 			}
-		} else if len(existingDnsRecords) == 1 {
+		} else if len(existingDNSRecords) == 1 {
 			// TODO do not update if there are no changes
 			//      Which fields to compare?
 			log.WithFields(log.Fields{
-				"new": desiredDnsRecord,
-				"old": existingDnsRecords[0],
+				"new": desiredDNSRecord,
+				"old": existingDNSRecords[0],
 			}).Info("Updating existing DNS record")
-			err := api.UpdateDNSRecord(ctx, zoneId, existingDnsRecords[0].ID, desiredDnsRecord)
+			err := api.UpdateDNSRecord(ctx, zoneID, existingDNSRecords[0].ID, desiredDNSRecord)
 			if err != nil {
 				log.WithError(err).WithFields(log.Fields{
-					"new": desiredDnsRecord,
-					"old": existingDnsRecords[0],
+					"new": desiredDNSRecord,
+					"old": existingDNSRecords[0],
 				}).Fatal("Couldn't update DNS record")
 			}
 		} else {
 			// TODO cleanup records
 			log.Fatal("Not implemented: the case when there are multiple AAAA records already")
 		}
-		setOldIpv6Address(state_filepath, addr)
+		setOldIpv6Address(stateFilepath, addr)
 	},
 }
 
@@ -170,27 +170,27 @@ func initConfig() {
 }
 
 func getIpv6Address(iface string) string {
-	net_iface, err := net.InterfaceByName(iface)
+	netIface, err := net.InterfaceByName(iface)
 	if err != nil {
 		log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
 	}
-	log.WithField("interface", net_iface).Debug("Found the interface")
-	addresses, err := net_iface.Addrs()
+	log.WithField("interface", netIface).Debug("Found the interface")
+	addresses, err := netIface.Addrs()
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't get interface addresses")
 	}
-	public_ipv6_addresses := []string{}
+	publicIpv6Addresses := []string{}
 	for _, addr := range addresses {
 		log.WithField("address", addr).Debug("Found address")
 		if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() && ipnet.IP.To4() == nil {
-			public_ipv6_addresses = append(public_ipv6_addresses, ipnet.IP.String())
+			publicIpv6Addresses = append(publicIpv6Addresses, ipnet.IP.String())
 		}
 	}
-	if len(public_ipv6_addresses) == 0 {
+	if len(publicIpv6Addresses) == 0 {
 		log.Fatal("No public IPv6 addresses found")
 	}
-	log.WithField("addresses", public_ipv6_addresses).Infof("Found %d public IPv6 addresses, use the first one", len(public_ipv6_addresses))
-	return public_ipv6_addresses[0]
+	log.WithField("addresses", publicIpv6Addresses).Infof("Found %d public IPv6 addresses, use the first one", len(publicIpv6Addresses))
+	return publicIpv6Addresses[0]
 }
 
 func getZoneFromDomain(domain string) string {
@@ -198,8 +198,8 @@ func getZoneFromDomain(domain string) string {
 	return strings.Join(parts[len(parts)-2:], ".")
 }
 
-func getOldIpv6Address(state_filepath string) string {
-	ipv6, err := os.ReadFile(state_filepath)
+func getOldIpv6Address(stateFilepath string) string {
+	ipv6, err := os.ReadFile(stateFilepath)
 	if err != nil {
 		log.WithError(err).Warn("Can't get old ipv6 address")
 		return "INVALID"
@@ -207,8 +207,8 @@ func getOldIpv6Address(state_filepath string) string {
 	return string(ipv6)
 }
 
-func setOldIpv6Address(state_filepath string, ipv6 string) {
-	err := os.WriteFile(state_filepath, []byte(ipv6), 0644)
+func setOldIpv6Address(stateFilepath string, ipv6 string) {
+	err := os.WriteFile(stateFilepath, []byte(ipv6), 0644)
 	if err != nil {
 		log.WithError(err).Error("Can't write state file")
 	}
