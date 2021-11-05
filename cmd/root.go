@@ -128,7 +128,9 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			// TODO cleanup records
 			log.Fatal("Not implemented: the case when there are multiple AAAA records already")
 		}
-		setOldIpv6Address(stateFilepath, addr)
+		if systemd {
+			setOldIpv6Address(stateFilepath, addr)
+		}
 	},
 }
 
