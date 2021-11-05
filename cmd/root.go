@@ -46,6 +46,15 @@ var rootCmd = &cobra.Command{
 
 Requires a network interface name for a IPv6 address lookup, domain name
 and Cloudflare API token with edit access rights to corresponding DNS zone.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		level, err := log.ParseLevel(viper.GetString("log-level"))
+		if err != nil {
+			return err
+		}
+		log.Info("Setting log level to:", level)
+		log.SetLevel(level)
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if viper.ConfigFileUsed() != "" {
@@ -148,6 +157,7 @@ func init() {
 	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address")
 	rootCmd.Flags().String("domain", "", "Domain name to assign the IPv6 address to")
 	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights")
+	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic")
 	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd
 In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API`)
 
