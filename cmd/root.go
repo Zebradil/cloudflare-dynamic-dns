@@ -47,7 +47,14 @@ var rootCmd = &cobra.Command{
 Requires a network interface name for a IPv6 address lookup, domain name
 and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Debug("Root command invoked")
+
+		if viper.ConfigFileUsed() != "" {
+			log.WithField("config", viper.ConfigFileUsed()).Debug("Using config file")
+			checkConfigAccessMode(viper.ConfigFileUsed())
+		} else {
+			log.Debug("No config file used")
+		}
+
 		var (
 			iface         = viper.GetString("iface")
 			domain        = viper.GetString("domain")
@@ -211,5 +218,16 @@ func setOldIpv6Address(stateFilepath string, ipv6 string) {
 	err := os.WriteFile(stateFilepath, []byte(ipv6), 0644)
 	if err != nil {
 		log.WithError(err).Error("Can't write state file")
+	}
+}
+
+func checkConfigAccessMode(configFilename string) {
+	info, err := os.Stat(configFilename)
+	if err != nil {
+		log.WithError(err).Fatal("Can't get config file info")
+	}
+	log.WithField("mode", info.Mode()).Debug("Config file mode")
+	if info.Mode()&1010 != 0 {
+		log.Warn("Config file should be accessible only by owner")
 	}
 }
