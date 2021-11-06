@@ -3,6 +3,7 @@ module github.com/zebradil/cloudflare-dynamic-dns
 go 1.17
 
 require (
+	github.com/cloudflare/cloudflare-go v0.21.0
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.8.1
 )
@@ -27,7 +28,6 @@ require (
 )
 
 require (
-	github.com/cloudflare/cloudflare-go v0.21.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/net v0.0.0-20210510120150-4163338589ed // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
