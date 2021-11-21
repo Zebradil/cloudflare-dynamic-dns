@@ -114,37 +114,66 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: 60}
 
 		if len(existingDNSRecords) == 0 {
-			log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
-			_, err := api.CreateDNSRecord(ctx, zoneID, desiredDNSRecord)
-			if err != nil {
-				log.WithError(err).Fatal("Couldn't create DNS record")
-			}
+			createNewDNSRecord(api, zoneID, desiredDNSRecord)
 		} else if len(existingDNSRecords) == 1 {
-			if existingDNSRecords[0].Content == desiredDNSRecord.Content && existingDNSRecords[0].TTL ==
-				desiredDNSRecord.TTL {
-				log.WithField("record", existingDNSRecords[0]).Info("DNS record is up to date")
-				return
-			}
-
-			log.WithFields(log.Fields{
-				"new": desiredDNSRecord,
-				"old": existingDNSRecords[0],
-			}).Info("Updating existing DNS record")
-			err := api.UpdateDNSRecord(ctx, zoneID, existingDNSRecords[0].ID, desiredDNSRecord)
-			if err != nil {
-				log.WithError(err).WithFields(log.Fields{
-					"new": desiredDNSRecord,
-					"old": existingDNSRecords[0],
-				}).Fatal("Couldn't update DNS record")
-			}
+			updateDNSRecord(api, zoneID, existingDNSRecords[0], desiredDNSRecord)
 		} else {
-			// TODO cleanup records
-			log.Fatal("Not implemented: the case when there are multiple AAAA records already")
+			updated := false
+			for oldRecord := range existingDNSRecords {
+				if !updated && existingDNSRecords[oldRecord].Content == desiredDNSRecord.Content {
+					updateDNSRecord(api, zoneID, existingDNSRecords[oldRecord], desiredDNSRecord)
+					updated = true
+				} else {
+					deleteDNSRecord(api, zoneID, existingDNSRecords[oldRecord])
+				}
+			}
+			if !updated {
+				createNewDNSRecord(api, zoneID, desiredDNSRecord)
+			}
 		}
 		if systemd {
 			setOldIpv6Address(stateFilepath, addr)
 		}
 	},
+}
+
+func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord cloudflare.DNSRecord) {
+	ctx := context.Background()
+	log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
+	_, err := api.CreateDNSRecord(ctx, zoneID, desiredDNSRecord)
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't create DNS record")
+	}
+}
+
+func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DNSRecord, newRecord cloudflare.DNSRecord) {
+	ctx := context.Background()
+	if oldRecord.Content == newRecord.Content && oldRecord.TTL ==
+		newRecord.TTL {
+		log.WithField("record", oldRecord).Info("DNS record is up to date")
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"new": newRecord,
+		"old": oldRecord,
+	}).Info("Updating existing DNS record")
+	err := api.UpdateDNSRecord(ctx, zoneID, oldRecord.ID, newRecord)
+	if err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"new": newRecord,
+			"old": oldRecord,
+		}).Fatal("Couldn't update DNS record")
+	}
+}
+
+func deleteDNSRecord(api *cloudflare.API, zoneID string, record cloudflare.DNSRecord) {
+	ctx := context.Background()
+	log.WithField("record", record).Info("Deleting DNS record")
+	err := api.DeleteDNSRecord(ctx, zoneID, record.ID)
+	if err != nil {
+		log.WithError(err).WithField("record", record).Fatal("Couldn't delete DNS record")
+	}
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
