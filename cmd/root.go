@@ -120,8 +120,12 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 				log.WithError(err).Fatal("Couldn't create DNS record")
 			}
 		} else if len(existingDNSRecords) == 1 {
-			// TODO do not update if there are no changes
-			//      Which fields to compare?
+			if existingDNSRecords[0].Content == desiredDNSRecord.Content && existingDNSRecords[0].TTL ==
+				desiredDNSRecord.TTL {
+				log.WithField("record", existingDNSRecords[0]).Info("DNS record is up to date")
+				return
+			}
+
 			log.WithFields(log.Fields{
 				"new": desiredDNSRecord,
 				"old": existingDNSRecords[0],
