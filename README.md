@@ -35,6 +35,10 @@ yay -S cloudflare-dynamic-dns
 
 ### Manual
 
+Download archive for your OS from [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases).
+
+Or get the source code and build the binary:
+
 ```shell
 git clone https://github.com/Zebradil/cloudflare-dynamic-dns.git
 # OR
