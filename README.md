@@ -14,13 +14,15 @@ Usage:
   cloudflare-dynamic-dns [flags]
 
 Flags:
-      --config string   config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
-      --domain string   Domain name to assign the IPv6 address to
-  -h, --help            help for cloudflare-dynamic-dns
-      --iface string    Network interface to look up for a IPv6 address
-      --systemd         Switch operation mode for running in systemd
-                        In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API
-      --token string    Cloudflare API token with DNS edit access rights
+      --config string      config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
+      --domain string      Domain name to assign the IPv6 address to
+  -h, --help               help for cloudflare-dynamic-dns
+      --iface string       Network interface to look up for a IPv6 address
+      --log-level string   Sets logging level: trace, debug, info, warning, error, fatal, panic (default "info")
+      --systemd            Switch operation mode for running in systemd
+                           In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API
+      --token string       Cloudflare API token with DNS edit access rights
+      --ttl int            Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic' (default 1)
 ```
 
 ## Installation
