@@ -65,23 +65,33 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		}
 
 		var (
-			iface         = viper.GetString("iface")
 			domain        = viper.GetString("domain")
-			token         = viper.GetString("token")
+			iface         = viper.GetString("iface")
 			systemd       = viper.GetBool("systemd")
+			token         = viper.GetString("token")
+			ttl           = viper.GetInt("ttl")
 			stateFilepath = ""
 		)
+
+		if ttl < 60 || ttl > 86400 {
+			// NOTE: 1 is a special value which means "use the default TTL"
+			if ttl != 1 {
+				log.WithFields(log.Fields{"ttl": ttl}).Warn("TTL must be between 60 and 86400; using Cloudflare's default")
+				ttl = 1
+			}
+		}
 
 		if systemd {
 			stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), domain)
 		}
 
 		log.WithFields(log.Fields{
-			"iface":         iface,
 			"domain":        domain,
-			"token":         fmt.Sprintf("[%d characters]", len(token)),
-			"systemd":       systemd,
+			"iface":         iface,
 			"stateFilepath": stateFilepath,
+			"systemd":       systemd,
+			"token":         fmt.Sprintf("[%d characters]", len(token)),
+			"ttl":           ttl,
 		}).Info("Configuration")
 
 		addr := getIpv6Address(iface)
@@ -111,7 +121,7 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		}
 		log.WithField("records", existingDNSRecords).Debug("Found DNS records")
 
-		desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: 60}
+		desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: ttl}
 
 		if len(existingDNSRecords) == 0 {
 			createNewDNSRecord(api, zoneID, desiredDNSRecord)
@@ -187,12 +197,13 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
 
-	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address")
-	rootCmd.Flags().String("domain", "", "Domain name to assign the IPv6 address to")
-	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights")
-	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic")
 	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd
 In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API`)
+	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'")
+	rootCmd.Flags().String("domain", "", "Domain name to assign the IPv6 address to")
+	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address")
+	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic")
+	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights")
 
 	viper.BindPFlags(rootCmd.Flags())
 }
