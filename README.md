@@ -7,7 +7,7 @@ It is provided with systemd service and timer files for automation.
 ```
 Updates AAAA records at Cloudflare according to the current IPv6 address.
 
-Requires a network interface name for a IPv6 address lookup, domain name
+Requires a network interface name for a IPv6 address lookup, domain name[s]
 and Cloudflare API token with edit access rights to corresponding DNS zone.
 
 Usage:
@@ -15,7 +15,7 @@ Usage:
 
 Flags:
       --config string      config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
-      --domain string      Domain name to assign the IPv6 address to
+      --domains strings    Domain names to assign the IPv6 address to
   -h, --help               help for cloudflare-dynamic-dns
       --iface string       Network interface to look up for a IPv6 address
       --log-level string   Sets logging level: trace, debug, info, warning, error, fatal, panic (default "info")
@@ -66,7 +66,7 @@ sudo install -m700 -d /etc/cloudflare-dynamic-dns/config.d
 ### Run manually
 
 0. Follow steps from [Installation](#instllation) section
-1. Run `./cloudflare-dynamic-dns --domain example.com --iface eth0 --token cloudflare-api-token`
+1. Run `./cloudflare-dynamic-dns --domains 'example.com,*.example.com' --iface eth0 --token cloudflare-api-token`
    - NOTE: instead of compiling `cloudflare-dynamic-dns` binary, it can be replaced with `go run main.go` in the command above.
 
 Instead of specifying command line arguments, it is possible to create `~/.cloudflare-dynamic-dns.yaml` with the following structure:
@@ -74,7 +74,9 @@ Instead of specifying command line arguments, it is possible to create `~/.cloud
 ```yaml
 iface: eth0
 token: cloudflare-api-token
-domain: example.com
+domains:
+  - example.com
+  - "*.example.com"
 ```
 
 And then run `./cloudflare-dynamic-dns` (or `go run main.go`) without arguments.
@@ -96,7 +98,9 @@ Make sure that required systemd files are installed (see [Installation](#instlla
 sudo tee -a /etc/cloudflare-dynamic-dns/config.d/example.com.yaml <<EOF
 iface: eth0
 token: cloudflare-api-token
-domain: example.com
+domains:
+  - example.com
+  - "*.example.com"
 EOF
 
 # 3. Enable systemd timer
@@ -107,4 +111,7 @@ This way (via running multiple timers) you can use multiple configurations at th
 
 By default a timer is triggered one minute after boot and then every 5 minutes. It is not configurable currently.
 
-To avoid unnecessary requests to Cloudflare API state files are used. They're created in `/var/lib/cloudflare-dynamic-dns/` and named after `domain` configuration variable in corresponding config files. A state file contains IPv6 address which was set in a Cloudflare DNS AAAA record during the last successful run. If the current IPv6 address is the same as in the state file, no additional API requests are done.
+To avoid unnecessary requests to Cloudflare API state files are used.
+They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variable in corresponding config files (`iface` and md5 hash of `domains`).
+A state file contains IPv6 address which was set in a Cloudflare DNS AAAA record during the last successful run.
+If the current IPv6 address is the same as in the one in the state file, no additional API requests are done.

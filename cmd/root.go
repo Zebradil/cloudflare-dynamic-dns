@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"net"
 	"os"
@@ -44,7 +45,7 @@ var rootCmd = &cobra.Command{
 	Short: "Updates AAAA records at Cloudflare according to the current IPv6 address",
 	Long: `Updates AAAA records at Cloudflare according to the current IPv6 address.
 
-Requires a network interface name for a IPv6 address lookup, domain name
+Requires a network interface name for a IPv6 address lookup, domain name[s]
 and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		level, err := log.ParseLevel(viper.GetString("log-level"))
@@ -65,7 +66,7 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		}
 
 		var (
-			domain        = viper.GetString("domain")
+			domains       = viper.GetStringSlice("domains")
 			iface         = viper.GetString("iface")
 			systemd       = viper.GetBool("systemd")
 			token         = viper.GetString("token")
@@ -82,11 +83,11 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		}
 
 		if systemd {
-			stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), domain)
+			stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_")))))
 		}
 
 		log.WithFields(log.Fields{
-			"domain":        domain,
+			"domains":       domains,
 			"iface":         iface,
 			"stateFilepath": stateFilepath,
 			"systemd":       systemd,
@@ -94,11 +95,15 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			"ttl":           ttl,
 		}).Info("Configuration")
 
+		if len(domains) == 0 {
+			log.Fatal("No domains specified")
+		}
+
 		addr := getIpv6Address(iface)
 
 		if systemd && addr == getOldIpv6Address(stateFilepath) {
 			log.Info("The address hasn't changed, nothing to do")
-			log.Info(fmt.Sprintf("To bypass this check run without --systemd flag or remove the state file: %s", stateFilepath))
+			log.Info("To bypass this check run without --systemd flag or remove the state file: ", stateFilepath)
 			return
 		}
 
@@ -107,44 +112,52 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 			log.WithError(err).Fatal("Couldn't create API client")
 		}
 
-		ctx := context.Background()
-
-		zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
-		if err != nil {
-			log.WithError(err).Fatal("Couldn't get ZoneID")
+		for _, domain := range domains {
+			log.Info("Processing domain: ", domain)
+			processDomain(api, domain, addr, ttl)
 		}
 
-		dnsRecordFilter := cloudflare.DNSRecord{Type: "AAAA", Name: domain}
-		existingDNSRecords, err := api.DNSRecords(ctx, zoneID, dnsRecordFilter)
-		if err != nil {
-			log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
-		}
-		log.WithField("records", existingDNSRecords).Debug("Found DNS records")
-
-		desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: ttl}
-
-		if len(existingDNSRecords) == 0 {
-			createNewDNSRecord(api, zoneID, desiredDNSRecord)
-		} else if len(existingDNSRecords) == 1 {
-			updateDNSRecord(api, zoneID, existingDNSRecords[0], desiredDNSRecord)
-		} else {
-			updated := false
-			for oldRecord := range existingDNSRecords {
-				if !updated && existingDNSRecords[oldRecord].Content == desiredDNSRecord.Content {
-					updateDNSRecord(api, zoneID, existingDNSRecords[oldRecord], desiredDNSRecord)
-					updated = true
-				} else {
-					deleteDNSRecord(api, zoneID, existingDNSRecords[oldRecord])
-				}
-			}
-			if !updated {
-				createNewDNSRecord(api, zoneID, desiredDNSRecord)
-			}
-		}
 		if systemd {
 			setOldIpv6Address(stateFilepath, addr)
 		}
 	},
+}
+
+func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
+	ctx := context.Background()
+
+	zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't get ZoneID")
+	}
+
+	dnsRecordFilter := cloudflare.DNSRecord{Type: "AAAA", Name: domain}
+	existingDNSRecords, err := api.DNSRecords(ctx, zoneID, dnsRecordFilter)
+	if err != nil {
+		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
+	}
+	log.WithField("records", existingDNSRecords).Debug("Found DNS records")
+
+	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: ttl}
+
+	if len(existingDNSRecords) == 0 {
+		createNewDNSRecord(api, zoneID, desiredDNSRecord)
+	} else if len(existingDNSRecords) == 1 {
+		updateDNSRecord(api, zoneID, existingDNSRecords[0], desiredDNSRecord)
+	} else {
+		updated := false
+		for oldRecord := range existingDNSRecords {
+			if !updated && existingDNSRecords[oldRecord].Content == desiredDNSRecord.Content {
+				updateDNSRecord(api, zoneID, existingDNSRecords[oldRecord], desiredDNSRecord)
+				updated = true
+			} else {
+				deleteDNSRecord(api, zoneID, existingDNSRecords[oldRecord])
+			}
+		}
+		if !updated {
+			createNewDNSRecord(api, zoneID, desiredDNSRecord)
+		}
+	}
 }
 
 func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord cloudflare.DNSRecord) {
@@ -200,7 +213,7 @@ func init() {
 	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd
 In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API`)
 	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'")
-	rootCmd.Flags().String("domain", "", "Domain name to assign the IPv6 address to")
+	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to")
 	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address")
 	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic")
 	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights")
