@@ -283,7 +283,7 @@ func checkConfigAccessMode(configFilename string) {
 		log.WithError(err).Fatal("Can't get config file info")
 	}
 	log.WithField("mode", info.Mode()).Debug("Config file mode")
-	if info.Mode()&1010 != 0 {
+	if info.Mode()&0011 != 0 {
 		log.Warn("Config file should be accessible only by owner")
 	}
 }
