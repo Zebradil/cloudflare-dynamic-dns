@@ -59,6 +59,8 @@ github.com/cloudflare/cloudflare-go v0.52.0 h1:9pa170sl8HBR2c/7I5konGwgDYzlQ4dy3
 github.com/cloudflare/cloudflare-go v0.52.0/go.mod h1:JSdZSD4FjF220O9REnYf0IGx7gUdbWwRgCAv4TusaJc=
 github.com/cloudflare/cloudflare-go v0.53.0 h1:FgtqvVhSzhHXlMBzPmJxIse71zUJ/UcF90+V8CT2lws=
 github.com/cloudflare/cloudflare-go v0.53.0/go.mod h1:PMS5SW5YLMvuYLNfeDk8jyNWpjGFAS8k+2sJ6W+CZeo=
+github.com/cloudflare/cloudflare-go v0.56.0 h1:ipMEKt3/33fgv8CdHnxn9hba1HzJ67hf0VyCdprIaro=
+github.com/cloudflare/cloudflare-go v0.56.0/go.mod h1:Xv29BilsDBBZUneqqnSEJT4HRi1YMn4RvWitAVkESOI=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
