@@ -104,7 +104,7 @@ domains:
 EOF
 
 # 3. Enable systemd timer
-sudo systemd enable --now cloudflare-dynamic-dns@example.com.timer
+sudo systemctl enable --now cloudflare-dynamic-dns@example.com.timer
 ```
 
 This way (via running multiple timers) you can use multiple configurations at the same time.
