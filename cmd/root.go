@@ -131,8 +131,8 @@ func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
 		log.WithError(err).Fatal("Couldn't get ZoneID")
 	}
 
-	dnsRecordFilter := cloudflare.DNSRecord{Type: "AAAA", Name: domain}
-	existingDNSRecords, err := api.DNSRecords(ctx, zoneID, dnsRecordFilter)
+	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
+	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
 	if err != nil {
 		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
 	}
@@ -163,7 +163,12 @@ func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
 func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord cloudflare.DNSRecord) {
 	ctx := context.Background()
 	log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
-	_, err := api.CreateDNSRecord(ctx, zoneID, desiredDNSRecord)
+	_, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
+		Type:    desiredDNSRecord.Type,
+		Name:    desiredDNSRecord.Name,
+		Content: desiredDNSRecord.Content,
+		TTL:     desiredDNSRecord.TTL,
+	})
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't create DNS record")
 	}
@@ -181,7 +186,13 @@ func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DN
 		"new": newRecord,
 		"old": oldRecord,
 	}).Info("Updating existing DNS record")
-	err := api.UpdateDNSRecord(ctx, zoneID, oldRecord.ID, newRecord)
+	err := api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
+		ID:      oldRecord.ID,
+		Type:    newRecord.Type,
+		Name:    newRecord.Name,
+		Content: newRecord.Content,
+		TTL:     newRecord.TTL,
+	})
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"new": newRecord,
@@ -193,7 +204,7 @@ func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DN
 func deleteDNSRecord(api *cloudflare.API, zoneID string, record cloudflare.DNSRecord) {
 	ctx := context.Background()
 	log.WithField("record", record).Info("Deleting DNS record")
-	err := api.DeleteDNSRecord(ctx, zoneID, record.ID)
+	err := api.DeleteDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), record.ID)
 	if err != nil {
 		log.WithError(err).WithField("record", record).Fatal("Couldn't delete DNS record")
 	}
