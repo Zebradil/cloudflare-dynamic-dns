@@ -115,3 +115,21 @@ To avoid unnecessary requests to Cloudflare API state files are used.
 They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variable in corresponding config files (`iface` and md5 hash of `domains`).
 A state file contains IPv6 address which was set in a Cloudflare DNS AAAA record during the last successful run.
 If the current IPv6 address is the same as in the one in the state file, no additional API requests are done.
+
+## Development
+
+Builds and releases are done with [goreleaser](https://goreleaser.com/).
+
+Use the following Taskfile tasks to bulid the application:
+
+```shell
+# Build with go for the current platform
+task build
+
+# Build with GoReleaser for all configured platforms
+task goreleaser:build
+```
+
+## License
+
+MIT
