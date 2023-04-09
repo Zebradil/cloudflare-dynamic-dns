@@ -168,7 +168,7 @@ func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DN
 		"new": newRecord,
 		"old": oldRecord,
 	}).Info("Updating existing DNS record")
-	err := api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
+	_, err := api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
 		ID:      oldRecord.ID,
 		Type:    newRecord.Type,
 		Name:    newRecord.Name,
