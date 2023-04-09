@@ -46,12 +46,13 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		}
 
 		var (
-			domains       = viper.GetStringSlice("domains")
-			iface         = viper.GetString("iface")
-			systemd       = viper.GetBool("systemd")
-			token         = viper.GetString("token")
-			ttl           = viper.GetInt("ttl")
-			stateFilepath = ""
+			domains         = viper.GetStringSlice("domains")
+			iface           = viper.GetString("iface")
+			prioritySubnets = viper.GetStringSlice("prioritySubnets")
+			stateFilepath   = ""
+			systemd         = viper.GetBool("systemd")
+			token           = viper.GetString("token")
+			ttl             = viper.GetInt("ttl")
 		)
 
 		if ttl < 60 || ttl > 86400 {
@@ -67,19 +68,20 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		}
 
 		log.WithFields(log.Fields{
-			"domains":       domains,
-			"iface":         iface,
-			"stateFilepath": stateFilepath,
-			"systemd":       systemd,
-			"token":         fmt.Sprintf("[%d characters]", len(token)),
-			"ttl":           ttl,
+			"domains":         domains,
+			"iface":           iface,
+			"prioritySubnets": prioritySubnets,
+			"stateFilepath":   stateFilepath,
+			"systemd":         systemd,
+			"token":           fmt.Sprintf("[%d characters]", len(token)),
+			"ttl":             ttl,
 		}).Info("Configuration")
 
 		if len(domains) == 0 {
 			log.Fatal("No domains specified")
 		}
 
-		addr := getIpv6Address(iface)
+		addr := getIpv6Address(iface, prioritySubnets)
 
 		if systemd && addr == getOldIpv6Address(stateFilepath) {
 			log.Info("The address hasn't changed, nothing to do")
@@ -201,13 +203,15 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
 
-	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd
-In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API`)
-	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'")
-	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to")
-	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address")
-	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic")
-	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights")
+	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
+In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.`)
+	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'.")
+	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
+	rootCmd.Flags().StringSlice("priority-subnets", []string{}, `IPv6 subnets to prefer over others.
+If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.`)
+	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address.")
+	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
+	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
 
 	viper.BindPFlags(rootCmd.Flags())
 }
@@ -236,28 +240,72 @@ func initConfig() {
 	}
 }
 
-func getIpv6Address(iface string) string {
+func getIpv6Address(iface string, prioritySubnets []string) string {
 	netIface, err := net.InterfaceByName(iface)
 	if err != nil {
 		log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
 	}
 	log.WithField("interface", netIface).Debug("Found the interface")
-	addresses, err := netIface.Addrs()
+
+	addrs, err := netIface.Addrs()
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't get interface addresses")
 	}
-	publicIpv6Addresses := []string{}
-	for _, addr := range addresses {
+
+	publicIpv6Addresses := []net.IP{}
+	for _, addr := range addrs {
 		log.WithField("address", addr).Debug("Found address")
-		if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() && ipnet.IP.To4() == nil {
-			publicIpv6Addresses = append(publicIpv6Addresses, ipnet.IP.String())
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			log.WithError(err).WithField("address", addr).Error("Couldn't parse address")
+			continue
+		}
+		if ip.IsGlobalUnicast() && ip.To4() == nil {
+			publicIpv6Addresses = append(publicIpv6Addresses, ip)
 		}
 	}
+
 	if len(publicIpv6Addresses) == 0 {
 		log.Fatal("No public IPv6 addresses found")
 	}
-	log.WithField("addresses", publicIpv6Addresses).Infof("Found %d public IPv6 addresses, use the first one", len(publicIpv6Addresses))
-	return publicIpv6Addresses[0]
+
+	netPrioritySubnets := []net.IPNet{}
+	for _, subnet := range prioritySubnets {
+		_, ipNet, err := net.ParseCIDR(subnet)
+		if err != nil {
+			log.WithError(err).WithField("subnet", subnet).Error("Couldn't parse subnet")
+			continue
+		}
+		netPrioritySubnets = append(netPrioritySubnets, *ipNet)
+	}
+
+	maxWeight := len(netPrioritySubnets)
+	weightedAddresses := make(map[string]int)
+	for _, ip := range publicIpv6Addresses {
+		weightedAddresses[ip.String()] = maxWeight
+		for i, ipNet := range netPrioritySubnets {
+			if ipNet.Contains(ip) {
+				weightedAddresses[ip.String()] = i
+				break
+			}
+		}
+	}
+	log.WithFields(log.Fields{
+		"addresses": publicIpv6Addresses,
+		"weighted":  weightedAddresses,
+	}).Debug("Found and weighted public IPv6 addresses")
+
+	var selectedIp string
+	selectedWeight := maxWeight + 1
+	for ip, weight := range weightedAddresses {
+		if weight < selectedWeight {
+			selectedIp = ip
+			selectedWeight = weight
+		}
+	}
+
+	log.WithField("addresses", publicIpv6Addresses).Infof("Found %d public IPv6 addresses, selected %s", len(publicIpv6Addresses), selectedIp)
+	return selectedIp
 }
 
 func getZoneFromDomain(domain string) string {
