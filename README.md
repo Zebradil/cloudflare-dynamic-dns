@@ -14,15 +14,17 @@ Usage:
   cloudflare-dynamic-dns [flags]
 
 Flags:
-      --config string      config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
-      --domains strings    Domain names to assign the IPv6 address to
-  -h, --help               help for cloudflare-dynamic-dns
-      --iface string       Network interface to look up for a IPv6 address
-      --log-level string   Sets logging level: trace, debug, info, warning, error, fatal, panic (default "info")
-      --systemd            Switch operation mode for running in systemd
-                           In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API
-      --token string       Cloudflare API token with DNS edit access rights
-      --ttl int            Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic' (default 1)
+      --config string              config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
+      --domains strings            Domain names to assign the IPv6 address to.
+  -h, --help                       help for cloudflare-dynamic-dns
+      --iface string               Network interface to look up for a IPv6 address.
+      --log-level string           Sets logging level: trace, debug, info, warning, error, fatal, panic. (default "info")
+      --priority-subnets strings   IPv6 subnets to prefer over others.
+                                   If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.
+      --systemd                    Switch operation mode for running in systemd.
+                                   In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.
+      --token string               Cloudflare API token with DNS edit access rights.
+      --ttl int                    Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
 ```
 
 ## Installation
@@ -53,7 +55,7 @@ go build -o cloudflare-dynamic-dns main.go
 Now you can run `cloudflare-dynamic-dns` manually (see [Usage](#usage) section).
 
 If you want to do some automation with systemd, `cloudflare-dynamic-dns` has to be installed system-wide
-(it *is* possible to run systemd timer and service without root privileges, but I do not provide ready-to-use configuration for this yet):
+(it _is_ possible to run systemd timer and service without root privileges, but I do not provide ready-to-use configuration for this yet):
 
 ```shell
 sudo install -Dm755 cloudflare-dynamic-dns -t /usr/bin
@@ -77,9 +79,10 @@ token: cloudflare-api-token
 domains:
   - example.com
   - "*.example.com"
-prioritySubnets:
-  - 2001:db8::/32
-  - 2001:db8:1::/48
+# Optional
+#prioritySubnets:
+#  - 2001:db8::/32
+#  - 2001:db8:1::/48
 ```
 
 And then run `./cloudflare-dynamic-dns` (or `go run main.go`) without arguments.
@@ -87,6 +90,24 @@ Or put the configuration in any place and specify it with `--config` flag:
 
 ```shell
 ./cloudflare-dynamic-dns --config /any/place/config.yaml
+```
+
+### Priority subnets
+
+If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.
+If no priority subnets are specified, the first address is used.
+Priority subnets are specified in the configuration file:
+
+```yaml
+prioritySubnets:
+  - 2001:db8::/32
+  - 2001:db8:1::/48
+```
+
+Or via `--priority-subnets` flag:
+
+```shell
+./cloudflare-dynamic-dns --priority-subnets '2001:db8::/32,2001:db8:1::/48'
 ```
 
 ### Systemd service and timer
@@ -104,9 +125,6 @@ token: cloudflare-api-token
 domains:
   - example.com
   - "*.example.com"
-prioritySubnets:
-  - 2001:db8::/32
-  - 2001:db8:1::/48
 EOF
 
 # 3. Enable systemd timer
