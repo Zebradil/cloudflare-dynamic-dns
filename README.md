@@ -4,7 +4,7 @@ A small tool for updating IPv6 address at Cloudflare DNS with the currently dete
 
 It is provided with systemd service and timer files for automation.
 
-```
+```text
 Updates AAAA records at Cloudflare according to the current IPv6 address.
 
 Requires a network interface name for a IPv6 address lookup, domain name[s]
@@ -37,7 +37,7 @@ yay -S cloudflare-dynamic-dns
 
 ### Manual
 
-Download archive for your OS from [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases).
+Download the archive for your OS from the [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases).
 
 Or get the source code and build the binary:
 
@@ -56,7 +56,7 @@ If you want to do some automation with systemd, `cloudflare-dynamic-dns` has to 
 (it *is* possible to run systemd timer and service without root privileges, but I do not provide ready-to-use configuration for this yet):
 
 ```shell
-sudo install -Dm755 cloudflare-dynamic-dns -t /usr/bin 
+sudo install -Dm755 cloudflare-dynamic-dns -t /usr/bin
 sudo install -Dm644 systemd/* -t /usr/lib/systemd/system
 sudo install -m700 -d /etc/cloudflare-dynamic-dns/config.d
 ```
@@ -65,7 +65,7 @@ sudo install -m700 -d /etc/cloudflare-dynamic-dns/config.d
 
 ### Run manually
 
-0. Follow steps from [Installation](#instllation) section
+0. Follow the steps from the [Installation](#installation) section.
 1. Run `./cloudflare-dynamic-dns --domains 'example.com,*.example.com' --iface eth0 --token cloudflare-api-token`
    - NOTE: instead of compiling `cloudflare-dynamic-dns` binary, it can be replaced with `go run main.go` in the command above.
 
@@ -109,18 +109,18 @@ sudo systemctl enable --now cloudflare-dynamic-dns@example.com.timer
 
 This way (via running multiple timers) you can use multiple configurations at the same time.
 
-By default a timer is triggered one minute after boot and then every 5 minutes. It is not configurable currently.
+By default, a timer is triggered one minute after boot and then every 5 minutes. It is not configurable currently.
 
 To avoid unnecessary requests to Cloudflare API state files are used.
-They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variable in corresponding config files (`iface` and md5 hash of `domains`).
+They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variables in corresponding config files (`iface` and md5 hash of `domains`).
 A state file contains IPv6 address which was set in a Cloudflare DNS AAAA record during the last successful run.
-If the current IPv6 address is the same as in the one in the state file, no additional API requests are done.
+If the current IPv6 address is the same as the one in the state file, no additional API requests are done.
 
 ## Development
 
 Builds and releases are done with [goreleaser](https://goreleaser.com/).
 
-Use the following Taskfile tasks to bulid the application:
+Use the following Taskfile tasks to build the application:
 
 ```shell
 # Build with go for the current platform
