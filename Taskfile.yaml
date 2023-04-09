@@ -5,6 +5,11 @@ silent: true
 tasks:
   default: ${GOTASK_BIN:-task} --list
 
+  run:
+    desc: Run the binary for the current platform
+    cmds:
+      - go run main.go {{.CLI_ARGS}}
+
   build:
     desc: Build the binary for the current platform
     cmds:
