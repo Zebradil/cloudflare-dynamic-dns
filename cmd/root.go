@@ -26,6 +26,7 @@ var rootCmd = &cobra.Command{
 
 Requires a network interface name for a IPv6 address lookup, domain name[s]
 and Cloudflare API token with edit access rights to corresponding DNS zone.`,
+	Args: cobra.NoArgs,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		level, err := log.ParseLevel(viper.GetString("log-level"))
 		if err != nil {
