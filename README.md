@@ -90,7 +90,7 @@ Or put the configuration in any place and specify it with `--config` flag (that'
 
 It is possible to run `cloudflare-dynamic-dns` periodically via systemd.
 This requires privileged access to the system.
-Make sure that required systemd files are installed (see [Installation](#instllation) section for details).
+Make sure that required systemd files are installed (see [Installation](#installation) section for details).
 
 ```shell
 # 1. Create configuration file `/etc/cloudflare-dynamic-dns/config.d/<name>.yaml`
