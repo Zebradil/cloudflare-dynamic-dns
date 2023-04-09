@@ -77,6 +77,9 @@ token: cloudflare-api-token
 domains:
   - example.com
   - "*.example.com"
+prioritySubnets:
+  - 2001:db8::/32
+  - 2001:db8:1::/48
 ```
 
 And then run `./cloudflare-dynamic-dns` (or `go run main.go`) without arguments.
@@ -101,6 +104,9 @@ token: cloudflare-api-token
 domains:
   - example.com
   - "*.example.com"
+prioritySubnets:
+  - 2001:db8::/32
+  - 2001:db8:1::/48
 EOF
 
 # 3. Enable systemd timer
