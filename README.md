@@ -80,7 +80,7 @@ domains:
 ```
 
 And then run `./cloudflare-dynamic-dns` (or `go run main.go`) without arguments.
-Or put the configuration in any place and specify it with `--config` flag (that's not tested):
+Or put the configuration in any place and specify it with `--config` flag:
 
 ```shell
 ./cloudflare-dynamic-dns --config /any/place/config.yaml
