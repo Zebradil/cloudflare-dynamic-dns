@@ -9,10 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	cloudflare "github.com/cloudflare/cloudflare-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/cloudflare/cloudflare-go"
 	"github.com/spf13/viper"
 )
 
@@ -37,7 +36,6 @@ and Cloudflare API token with edit access rights to corresponding DNS zone.`,
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-
 		if viper.ConfigFileUsed() != "" {
 			log.WithField("config", viper.ConfigFileUsed()).Debug("Using config file")
 			checkConfigAccessMode(viper.ConfigFileUsed())
@@ -323,7 +321,7 @@ func getOldIpv6Address(stateFilepath string) string {
 }
 
 func setOldIpv6Address(stateFilepath string, ipv6 string) {
-	err := os.WriteFile(stateFilepath, []byte(ipv6), 0644)
+	err := os.WriteFile(stateFilepath, []byte(ipv6), 0o644)
 	if err != nil {
 		log.WithError(err).Error("Can't write state file")
 	}
@@ -335,7 +333,7 @@ func checkConfigAccessMode(configFilename string) {
 		log.WithError(err).Fatal("Can't get config file info")
 	}
 	log.WithField("mode", info.Mode()).Debug("Config file mode")
-	if info.Mode()&0011 != 0 {
+	if info.Mode()&0o011 != 0 {
 		log.Warn("Config file should be accessible only by owner")
 	}
 }
