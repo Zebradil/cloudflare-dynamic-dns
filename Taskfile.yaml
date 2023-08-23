@@ -1,6 +1,10 @@
-version: '3'
+---
+version: "3"
 
 silent: true
+
+vars:
+  BIN_NAME: "cloudflare-dynamic-dns"
 
 tasks:
   default: ${GOTASK_BIN:-task} --list
@@ -18,4 +22,4 @@ tasks:
   goreleaser:build:
     desc: Build binaries for all platforms using goreleaser
     cmds:
-      - goreleaser build --snapshot --rm-dist
+      - goreleaser build --snapshot --clean --single-target --output bin/{{.BIN_NAME}}
