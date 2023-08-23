@@ -211,7 +211,10 @@ If multiple IPv6 addresses are found on the interface, the one from the subnet w
 	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
 	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
 
-	viper.BindPFlags(rootCmd.Flags())
+	err := viper.BindPFlags(rootCmd.Flags())
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't bind flags")
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
