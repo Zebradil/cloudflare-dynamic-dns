@@ -9,17 +9,39 @@ vars:
 tasks:
   default: ${GOTASK_BIN:-task} --list
 
-  run:
-    desc: Run the binary for the current platform
+  go:fmt:
+    desc: Format the code
     cmds:
-      - go run main.go {{.CLI_ARGS}}
+      - goimports-reviser -rm-unused -set-alias -format ./...
+      - gofumpt -w .
 
-  build:
-    desc: Build the binary for the current platform
+  go:lint:golangci:
     cmds:
-      - go build -o bin/cloudflare-dynamic-dns main.go
+      - golangci-lint run
 
-  goreleaser:build:
-    desc: Build binaries for all platforms using goreleaser
+  go:lint:vet:
+    cmds:
+      - go vet ./...
+
+  go:lint:sec:
+    cmds:
+      - gosec ./...
+
+  go:lint:
+    desc: Lint the code
+    deps:
+      - go:lint:golangci
+      - go:lint:vet
+      - go:lint:sec
+
+  go:build:
+    desc: Build the binary
     cmds:
       - goreleaser build --snapshot --clean --single-target --output bin/{{.BIN_NAME}}
+
+  go:run:
+    desc: Run the binary
+    deps:
+      - go:build
+    cmds:
+      - bin/{{.BIN_NAME}} {{.CLI_ARGS}}

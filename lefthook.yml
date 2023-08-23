@@ -1,0 +1,16 @@
+pre-commit:
+  commands:
+    govet:
+      glob: "*.go"
+      run: go vet ./...
+    gofumpt:
+      files: git diff --name-only --cached --diff-filter=AM
+      glob: "*.go"
+      run: gofumpt -l {files} | tee /dev/stderr | test $(wc -l) -eq 0
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run
+commit-msg:
+  commands:
+    "lint commit message":
+      run: commitlint --edit {1}

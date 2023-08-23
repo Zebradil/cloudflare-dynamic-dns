@@ -1,0 +1,9 @@
+---
+extends: default
+
+rules:
+  comments:
+    min-spaces-from-content: 1
+    require-starting-space: false
+  line-length:
+    max: 120
