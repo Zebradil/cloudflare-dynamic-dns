@@ -1,0 +1,19 @@
+---
+name: PR Flow
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "main.go"
+      - "go.mod"
+      - "go.sum"
+      - ".goreleaser.yml"
+      - "cmd/**"
+
+jobs:
+  lint:
+    uses: ./.github/workflows/job-lint.yml
+  test:
+    uses: ./.github/workflows/job-test.yml
