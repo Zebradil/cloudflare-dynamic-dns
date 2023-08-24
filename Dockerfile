@@ -1,9 +1,12 @@
-FROM golang:1.19-alpine
+FROM golang:1.21
 
 WORKDIR /app
-COPY . /app
+
+COPY go.mod go.sum ./
 
 RUN go mod download
+
+COPY . .
 RUN go build -o bin/cloudflare-dynamic-dns main.go
 
-ENTRYPOINT ["bin/cloudflare-dynamic-dns"]
+ENTRYPOINT ["/app/bin/cloudflare-dynamic-dns"]
