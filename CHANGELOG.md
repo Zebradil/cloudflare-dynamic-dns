@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.0...2.2.1) (2023-08-30)
+
+
+### Bug Fixes
+
+* **ci:** trigger release ([5f74e40](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/5f74e40747c7bcdde73da1f9ad365aa219894397))
+
 # [2.2.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.1.3...2.2.0) (2023-08-30)
 
 
