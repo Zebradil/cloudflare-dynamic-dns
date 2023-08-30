@@ -47,6 +47,12 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           install-only: true
+      - name: Setup QEMU
+        if: steps.semantic.outputs.new_release_published == 'true'
+        uses: docker/setup-qemu-action@v2
+      - name: Setup Docker Buildx
+        if: steps.semantic.outputs.new_release_published == 'true'
+        uses: docker/setup-buildx-action@v2
       - name: Publish release
         if: steps.semantic.outputs.new_release_published == 'true'
         env:
