@@ -1,3 +1,10 @@
+## [2.2.2](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.1...2.2.2) (2023-08-30)
+
+
+### Bug Fixes
+
+* **ci:** configure more platforms for Docker ([e27660f](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/e27660f1ad97bca0879e825a2e7aa9062b85b591))
+
 ## [2.2.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.0...2.2.1) (2023-08-30)
 
 
