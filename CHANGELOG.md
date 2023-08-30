@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.1.3...2.2.0) (2023-08-30)
+
+
+### Features
+
+* add Docker support ([#64](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/64)) ([f67188a](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/f67188ae08fccbc6b02eda31bc975b3b0ed76efa))
+
 ## [2.1.3](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.1.2...2.1.3) (2023-08-30)
 
 
