@@ -148,11 +148,19 @@ Use the following Taskfile tasks to build the application:
 
 ```shell
 # Build with go for the current platform
-task build
+go build -o cloudflare-dynamic-dns main.go
 
 # Build with GoReleaser for all configured platforms
-task goreleaser:build
+task build
+
+# Use Docker
+docker build -t cloudflare-dynamic-dns -f dev.Dockerfile .
 ```
+
+### GeReleaser
+
+Do not change `.goreleaser.yml` manually, do changes in `.goreleaser.ytt.yml` and run
+`task misc:build:goreleaser-config` instead (requires [`ytt`](https://carvel.dev/ytt/) installed).
 
 ## License
 
