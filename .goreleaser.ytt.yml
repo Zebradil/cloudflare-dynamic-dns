@@ -1,0 +1,98 @@
+#@ project_name = 'cloudflare-dynamic-dns'
+#@ targets = [
+#@   ("linux", "amd64", ""),
+#@   ("linux", "386", ""),
+#@   ("linux", "arm64", ""),
+#@   ("linux", "arm", "6"),
+#@   ("linux", "arm", "7"),
+#@   ("linux", "mips", ""),
+#@   ("linux", "mipsle", ""),
+#@   ("linux", "mips64", ""),
+#@   ("linux", "mips64le", ""),
+#@   ("darwin", "amd64", ""),
+#@   ("darwin", "arm64", ""),
+#@   ("windows", "amd64", ""),
+#@   ("windows", "386", ""),
+#@ ]
+#@ versions = [
+#@   '{{ .Tag }}',
+#@   '{{ .Major }}',
+#@   '{{ .Major }}.{{ .Minor }}',
+#@   'latest',
+#@ ]
+
+#@ base_image = 'ghcr.io/zebradil/' + project_name
+
+#@ def make_target(os, arch, arm):
+#@   target = os + "_" + arch
+#@   if arm:
+#@     target += "_" + arm
+#@   end
+#@   return target
+#@ end
+
+#@ def make_image(version, os, arch, arm):
+#@   image = base_image + ":" + version + "-" + os + "-" + arch
+#@   if arm:
+#@     image += "-" + arm
+#@   end
+#@   return image
+#@ end
+
+#@ def make_platform(os, arch, arm):
+#@   platform = "--platform=" + os + "/" + arch
+#@   if arm:
+#@     platform += "/" + arm
+#@   end
+#@   return platform
+#@ end
+
+---
+project_name: #@ project_name
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - binary: #@ project_name
+    env:
+      - CGO_ENABLED=0
+    targets:
+      #@ for/end os, arch, arm in targets:
+      -  #@ make_target(os, arch, arm)
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - systemd/*
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+dockers:
+  #@ for/end os, arch, arm in targets:
+  - goos: #@ os
+    goarch: #@ arch
+    #@ if/end arm:
+    goarm: #@ arm
+    image_templates:
+      #@ for/end version in versions:
+      -  #@ make_image(version, os, arch, arm)
+    use: buildx
+    build_flag_templates:
+      -  #@ make_platform(os, arch, arm)
+docker_manifests:
+  #@ for/end version in versions:
+  - name_template: #@ base_image + ":" + version
+    image_templates:
+      #@ for/end os, arch, arm in targets:
+      -  #@ make_image(version, os, arch, arm)

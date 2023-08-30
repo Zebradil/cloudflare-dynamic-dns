@@ -4,7 +4,7 @@ name: PR Flow
 on:
   pull_request:
     branches:
-      - master
+      - main
     paths:
       - "main.go"
       - "go.mod"

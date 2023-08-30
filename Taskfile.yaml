@@ -45,3 +45,8 @@ tasks:
       - go:build
     cmds:
       - bin/{{.BIN_NAME}} {{.CLI_ARGS}}
+
+  misc:build:goreleaser-config:
+    desc: Renders .gorleaser.yml from .goreleaser.ytt.yml
+    cmds:
+      - ytt -f .goreleaser.ytt.yml > .goreleaser.yml
