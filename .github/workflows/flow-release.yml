@@ -44,7 +44,7 @@ jobs:
             @semantic-release/git
       - name: Install GoReleaser
         if: steps.semantic.outputs.new_release_published == 'true'
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           install-only: true
       - name: Setup QEMU
