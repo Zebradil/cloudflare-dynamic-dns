@@ -3,7 +3,7 @@ module github.com/zebradil/cloudflare-dynamic-dns
 go 1.19
 
 require (
-	github.com/cloudflare/cloudflare-go v0.79.0
+	github.com/cloudflare/cloudflare-go v0.80.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.17.0
 )
