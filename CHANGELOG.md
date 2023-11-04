@@ -1,3 +1,10 @@
+## [2.2.8](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.7...2.2.8) (2023-11-04)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/spf13/cobra to v1.8.0 ([48517b6](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/48517b6033b109b4095d70fb119214dc2ac1d63c))
+
 ## [2.2.7](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.6...2.2.7) (2023-10-25)
 
 
