@@ -169,4 +169,8 @@ Do not change `.goreleaser.yml` manually, do changes in `.goreleaser.ytt.yml` an
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+## Disclaimer
+
+This project is not affiliated with Cloudflare.
