@@ -95,6 +95,8 @@ aurs:
       BIN=(@= project_name @)
 
       install -Dm755 ./$BIN -t "${pkgdir}/usr/bin"
+      install -Dm644 systemd/* -t "$pkgdir"/usr/lib/systemd/system
+      install -m700 -d "$pkgdir"/etc/cloudflare-dynamic-dns/config.d
 
       # completions
       mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
