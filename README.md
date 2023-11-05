@@ -31,10 +31,15 @@ Flags:
 
 ### AUR
 
-There is a [package in AUR](https://aur.archlinux.org/packages/cloudflare-dynamic-dns/), which can be used on Arch-based distros.
+There are two packages in AUR (
+[1](https://aur.archlinux.org/packages/cloudflare-dynamic-dns/),
+[2](https://aur.archlinux.org/packages/cloudflare-dynamic-dns-bin/)
+), that can be used on Arch-based distros:
 
 ```shell
 yay -S cloudflare-dynamic-dns
+# OR
+yay -S cloudflare-dynamic-dns-bin
 ```
 
 ### Manual
