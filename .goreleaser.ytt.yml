@@ -17,6 +17,12 @@
 #@   ("windows", "amd64", ""),
 #@   ("windows", "386", ""),
 #@ ]
+#@ docker_targets = [
+#@   ("linux", "amd64", ""),
+#@   ("linux", "arm64", ""),
+#@   ("linux", "arm", "6"),
+#@   ("linux", "arm", "7"),
+#@ ]
 #@ versions = [
 #@   '{{ .Tag }}',
 #@   '{{ .Major }}',
@@ -101,7 +107,7 @@ aurs:
       name: #@ committer_name
       email: #@ committer_email
 dockers:
-  #@ for/end os, arch, arm in targets:
+  #@ for/end os, arch, arm in docker_targets:
   - goos: #@ os
     goarch: #@ arch
     #@ if/end arm:
