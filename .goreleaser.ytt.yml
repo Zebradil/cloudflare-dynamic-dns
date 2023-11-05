@@ -1,4 +1,6 @@
 #@ project_name = 'cloudflare-dynamic-dns'
+#@ description = 'Dynamic DNS client for Cloudflare'
+#@ maintainer = 'German Lashevich <german.lashevich@gmail.com>'
 #@ url = 'https://github.com/zebradil/cloudflare-dynamic-dns'
 #@ committer_name = 'Zebradil Bot'
 #@ committer_email = 'german.lashevich+github-zebradil-bot@gmail.com'
@@ -84,9 +86,9 @@ snapshot:
 aurs:
   - name: #@ project_name + "-bin"
     homepage: #@ url
-    description: Dynamic DNS client for Cloudflare
+    description: #@ description
     maintainers:
-      - "German Lashevich <german.lashevich at gmail dot com>"
+      -  #@ maintainer
     license: "MIT"
     private_key: "{{ .Env.AUR_SSH_KEY }}"
     git_url: #@ "ssh://aur@aur.archlinux.org/{}-bin.git".format(project_name)
@@ -108,6 +110,19 @@ aurs:
     commit_author:
       name: #@ committer_name
       email: #@ committer_email
+nfpms:
+  - vendor: Zebradil
+    homepage: #@ url
+    maintainer: #@ maintainer
+    description: #@ description
+    license: MIT
+    formats:
+      - apk
+      - deb
+      - rpm
+    contents:
+      - src: systemd/
+        dst: /usr/lib/systemd/system/
 dockers:
   #@ for/end os, arch, arm in docker_targets:
   - goos: #@ os
