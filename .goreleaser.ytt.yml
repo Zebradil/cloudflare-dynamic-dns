@@ -1,4 +1,7 @@
 #@ project_name = 'cloudflare-dynamic-dns'
+#@ url = 'https://github.com/zebradil/cloudflare-dynamic-dns'
+#@ committer_name = 'Zebradil Bot'
+#@ committer_email = 'german.lashevich+github-zebradil-bot@gmail.com'
 #@ targets = [
 #@   ("linux", "amd64", ""),
 #@   ("linux", "386", ""),
@@ -78,6 +81,31 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+aurs:
+  - name: #@ project_name + "-bin"
+    homepage: #@ url
+    description: Dynamic DNS client for Cloudflare
+    maintainers:
+      - "German Lashevich <german.lashevich at gmail dot com>"
+    license: "MIT"
+    private_key: "{{ .Env.AUR_SSH_KEY }}"
+    git_url: #@ "ssh://aur@aur.archlinux.org/{}-bin.git".format(project_name)
+    #@yaml/text-templated-strings
+    package: |-
+      BIN=(@= project_name @)
+
+      install -Dm755 ./$BIN -t "${pkgdir}/usr/bin"
+
+      # completions
+      mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
+      mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
+      mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
+      ./$BIN completion bash | install -Dm644 /dev/stdin "${pkgdir}/usr/share/bash-completion/completions/$BIN"
+      ./$BIN completion fish | install -Dm644 /dev/stdin "${pkgdir}/usr/share/fish/vendor_completions.d/$BIN.fish"
+      ./$BIN completion zsh  | install -Dm644 /dev/stdin "${pkgdir}/usr/share/zsh/site-functions/_$BIN"
+    commit_author:
+      name: #@ committer_name
+      email: #@ committer_email
 dockers:
   #@ for/end os, arch, arm in targets:
   - goos: #@ os
