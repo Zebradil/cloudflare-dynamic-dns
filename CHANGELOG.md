@@ -1,3 +1,19 @@
+# [2.3.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.8...2.3.0) (2023-11-06)
+
+
+### Bug Fixes
+
+* **ci:** log in to ghcr.io ([3cb4299](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/3cb42996145e473e82cf14352f5a214cd995a7a0))
+* **release:** install systemd units and create config dir in AUR package ([64d90df](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/64d90df804e52f743ce5e0b5d1c0a4a1ce3e5078))
+* **release:** reduce docker build targets ([272f7df](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/272f7df3cfe218d3d7f0806c56a885e48949dae9))
+* **release:** render goreleaser config ([b88e551](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/b88e55169f685061f515b732a684253f9df38029))
+
+
+### Features
+
+* **release:** add binary AUR package ([fc765be](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/fc765bece8f07c214e9ebbdbc9cc9a89ea3e80c0))
+* **release:** add nfpms packages configuration ([a05c01b](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/a05c01bc7e4a74f2bed076bc40f4a37d9540f64e))
+
 ## [2.2.8](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.7...2.2.8) (2023-11-04)
 
 
