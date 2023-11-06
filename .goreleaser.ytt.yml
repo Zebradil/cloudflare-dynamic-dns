@@ -139,5 +139,5 @@ docker_manifests:
   #@ for/end version in versions:
   - name_template: #@ base_image + ":" + version
     image_templates:
-      #@ for/end os, arch, arm in targets:
+      #@ for/end os, arch, arm in docker_targets:
       -  #@ make_image(version, os, arch, arm)
