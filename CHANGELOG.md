@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.3.0...2.3.1) (2023-11-06)
+
+
+### Bug Fixes
+
+* **ci:** adjust goreleaser config for less docker arches ([bbcfd76](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/bbcfd76585fbf3f67a463bb03b0f6fe056bfe8df))
+
 # [2.3.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.2.8...2.3.0) (2023-11-06)
 
 
