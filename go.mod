@@ -3,7 +3,7 @@ module github.com/zebradil/cloudflare-dynamic-dns
 go 1.19
 
 require (
-	github.com/cloudflare/cloudflare-go v0.80.0
+	github.com/cloudflare/cloudflare-go v0.81.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0
 )
@@ -37,6 +37,6 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/time v0.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
