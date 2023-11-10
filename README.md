@@ -42,6 +42,21 @@ yay -S cloudflare-dynamic-dns
 yay -S cloudflare-dynamic-dns-bin
 ```
 
+### Docker
+
+See the
+[container registry page](https://github.com/Zebradil/cloudflare-dynamic-dns/pkgs/container/cloudflare-dynamic-dns)
+for details.
+
+```shell
+docker pull ghcr.io/zebradil/cloudflare-dynamic-dns:latest
+```
+
+### DEB, RPM, APK
+
+See the [latest release page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases/latest) for the full list of
+packages.
+
 ### Manual
 
 Download the archive for your OS from the [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases).
