@@ -54,7 +54,7 @@ docker pull ghcr.io/zebradil/cloudflare-dynamic-dns:latest
 
 ### DEB, RPM, APK
 
-See the latest [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases/latest) for the full list of
+See the [latest release page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases/latest) for the full list of
 packages.
 
 ### Manual
