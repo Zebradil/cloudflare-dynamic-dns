@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
@@ -253,7 +254,11 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 		log.WithError(err).Fatal("Couldn't get interface addresses")
 	}
 
-	publicIpv6Addresses := []net.IP{}
+	// ip.IsGlobalUnicast() returns true for:
+	// GUA = Global Unicast Address
+	// ULA = Unique Local Address
+	// We prefer GUA over ULA.
+	ipv6Addresses := []net.IP{}
 	for _, addr := range addrs {
 		log.WithField("address", addr).Debug("Found address")
 		ip, _, err := net.ParseCIDR(addr.String())
@@ -262,13 +267,18 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 			continue
 		}
 		if ip.IsGlobalUnicast() && ip.To4() == nil {
-			publicIpv6Addresses = append(publicIpv6Addresses, ip)
+			ipv6Addresses = append(ipv6Addresses, ip)
 		}
 	}
 
-	if len(publicIpv6Addresses) == 0 {
-		log.Fatal("No public IPv6 addresses found")
+	if len(ipv6Addresses) == 0 {
+		log.Fatal("No suitable IPv6 addresses found")
 	}
+
+	// Sort addresses placing GUAs first
+	sort.Slice(ipv6Addresses, func(i, j int) bool {
+		return ipv6IsGUA(ipv6Addresses[i]) && !ipv6IsGUA(ipv6Addresses[j])
+	})
 
 	netPrioritySubnets := []net.IPNet{}
 	for _, subnet := range prioritySubnets {
@@ -282,7 +292,7 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 
 	maxWeight := len(netPrioritySubnets)
 	weightedAddresses := make(map[string]int)
-	for _, ip := range publicIpv6Addresses {
+	for _, ip := range ipv6Addresses {
 		weightedAddresses[ip.String()] = maxWeight
 		for i, ipNet := range netPrioritySubnets {
 			if ipNet.Contains(ip) {
@@ -292,7 +302,7 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 		}
 	}
 	log.WithFields(log.Fields{
-		"addresses": publicIpv6Addresses,
+		"addresses": ipv6Addresses,
 		"weighted":  weightedAddresses,
 	}).Debug("Found and weighted public IPv6 addresses")
 
@@ -305,7 +315,7 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 		}
 	}
 
-	log.WithField("addresses", publicIpv6Addresses).Infof("Found %d public IPv6 addresses, selected %s", len(publicIpv6Addresses), selectedIp)
+	log.WithField("addresses", ipv6Addresses).Infof("Found %d public IPv6 addresses, selected %s", len(ipv6Addresses), selectedIp)
 	return selectedIp
 }
 
@@ -339,4 +349,10 @@ func checkConfigAccessMode(configFilename string) {
 	if info.Mode()&0o011 != 0 {
 		log.Warn("Config file should be accessible only by owner")
 	}
+}
+
+// Custom function to check if an IPv6 address is a GUA.
+// net.IP.IsGlobalUnicast() returns true also for ULAs.
+func ipv6IsGUA(ip net.IP) bool {
+	return ip[0]&0b11100000 == 0b00100000
 }
