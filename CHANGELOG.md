@@ -1,3 +1,15 @@
+# [2.5.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.4.0...2.5.0) (2024-01-01)
+
+
+### Bug Fixes
+
+* log a warning if the selected IPv6 address is not optimal ([0a13ac3](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/0a13ac3f59f099cf9788cb3c544e6d583500a0f9))
+
+
+### Features
+
+* prefer EUI-64 over randomly generated identifiers ([3d5d772](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/3d5d772d3a57c2984a87bf9b4b9b25b40a31df30))
+
 # [2.4.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.3.9...2.4.0) (2024-01-01)
 
 
