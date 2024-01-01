@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.3.9...2.4.0) (2024-01-01)
+
+
+### Features
+
+* prefer GUA over ULA when selecting IPv6 address ([fa8e21a](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/fa8e21aa1d41038a3f8f72da3145a8dcc33f2ce9))
+
 ## [2.3.9](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.3.8...2.3.9) (2024-01-01)
 
 
