@@ -28,7 +28,8 @@ are used to select the one to use:
     1. Only global unicast addresses (GUA) and unique local addresses (ULA) are
        considered.
     2. GUA addresses are preferred over ULA addresses.
-    3. If priority subnets are specified, addresses from the subnet with the
+    3. Unique EUI-64 addresses are preferred over randomly generated addresses.
+    4. If priority subnets are specified, addresses from the subnet with the
        highest priority are selected. The priority is determined by the order
        of subnets specified on the command line or in the config file.
 
@@ -313,7 +314,8 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 
 	// Sort addresses placing GUAs first
 	sort.Slice(ipv6Addresses, func(i, j int) bool {
-		return ipv6IsGUA(ipv6Addresses[i]) && !ipv6IsGUA(ipv6Addresses[j])
+		return ipv6IsGUA(ipv6Addresses[i]) && !ipv6IsGUA(ipv6Addresses[j]) ||
+			ipv6IsLocalUnique(ipv6Addresses[i]) && !ipv6IsLocalUnique(ipv6Addresses[j])
 	})
 
 	netPrioritySubnets := []net.IPNet{}
@@ -391,4 +393,10 @@ func checkConfigAccessMode(configFilename string) {
 // net.IP.IsGlobalUnicast() returns true also for ULAs.
 func ipv6IsGUA(ip net.IP) bool {
 	return ip[0]&0b11100000 == 0b00100000
+}
+
+// Custom function to check if an EUI-64 of an IPv6 address is locally unique.
+// See RFC 4291, section 2.5.1.
+func ipv6IsLocalUnique(ip net.IP) bool {
+	return ip[8]&0b01000000 == 0b01000000
 }
