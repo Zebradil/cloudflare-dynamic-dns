@@ -3,6 +3,12 @@
   "extends": ["config:base"],
   "packageRules": [
     {
+      "matchFileNames": ["Dockerfile"],
+      "matchDepNames": ["alpine"],
+      "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "automerge": true
     }
