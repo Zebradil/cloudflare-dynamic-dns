@@ -354,6 +354,13 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 	}
 
 	log.WithField("addresses", ipv6Addresses).Infof("Found %d public IPv6 addresses, selected %s", len(ipv6Addresses), selectedIp)
+	ipIP := net.ParseIP(selectedIp)
+	if !ipv6IsLocalUnique(ipIP) {
+		log.Warn("The selected address doesn't have a unique EUI-64, it may change frequently")
+	}
+	if !ipv6IsGUA(ipIP) {
+		log.Warn("The selected address is not a GUA, it may not be routable")
+	}
 	return selectedIp
 }
 
