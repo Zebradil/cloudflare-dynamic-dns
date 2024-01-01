@@ -5,10 +5,42 @@ A small tool for updating IPv6 address at Cloudflare DNS with the currently dete
 It is provided with systemd service and timer files for automation.
 
 ```text
-Updates AAAA records at Cloudflare according to the current IPv6 address.
+Selects an IPv6 address from the specified network interface and updates
+AAAA records at Cloudflare for configured domains.
 
 Requires a network interface name for a IPv6 address lookup, domain name[s]
 and Cloudflare API token with edit access rights to corresponding DNS zone.
+
+When multiple IPv6 addresses are found on the interface, the following rules
+are used to select the one to use:
+    1. Only global unicast addresses (GUA) and unique local addresses (ULA) are
+       considered.
+    2. GUA addresses are preferred over ULA addresses.
+    3. If priority subnets are specified, addresses from the subnet with the
+       highest priority are selected. The priority is determined by the order
+       of subnets specified on the command line or in the config file.
+
+The program can be run in systemd mode, in which case the previously used
+IPv6 address is preserved between runs to avoid unnecessary calls to Cloudflare
+API. This mode is enabled by passing --systemd flag. The state file is stored
+in the directory specified by the STATE_DIRECTORY environment variable.
+
+The program can be configured using a config file. The default location is
+$HOME/.cloudflare-dynamic-dns.yaml. The config file location can be overridden
+using --config flag. The config file format is YAML. The following options are
+supported (with example values):
+
+    iface: eth0
+    token: cloudflare-api-token
+    domains:
+      - example.com
+      - "*.example.com"
+    # --- optional fields ---
+    prioritySubnets:
+      - 2001:db8::/32
+      - 2001:db8:1::/48
+    ttl: 180
+    systemd: false
 
 Usage:
   cloudflare-dynamic-dns [flags]
