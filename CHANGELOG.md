@@ -1,3 +1,10 @@
+## [2.3.9](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.3.8...2.3.9) (2024-01-01)
+
+
+### Bug Fixes
+
+* add ca-certificates to scratch image ([9579a11](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/9579a116874e922921f6137d1be916802e73d4fa)), closes [#90](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/90)
+
 ## [2.3.8](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.3.7...2.3.8) (2023-12-20)
 
 
