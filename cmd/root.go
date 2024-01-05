@@ -73,72 +73,74 @@ var rootCmd = &cobra.Command{
 		log.SetLevel(level)
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		if viper.ConfigFileUsed() != "" {
-			log.WithField("config", viper.ConfigFileUsed()).Debug("Using config file")
-			checkConfigAccessMode(viper.ConfigFileUsed())
-		} else {
-			log.Debug("No config file used")
+	Run: rootCmdRun,
+}
+
+func rootCmdRun(cmd *cobra.Command, args []string) {
+	if viper.ConfigFileUsed() != "" {
+		log.WithField("config", viper.ConfigFileUsed()).Debug("Using config file")
+		checkConfigAccessMode(viper.ConfigFileUsed())
+	} else {
+		log.Debug("No config file used")
+	}
+
+	var (
+		domains         = viper.GetStringSlice("domains")
+		iface           = viper.GetString("iface")
+		prioritySubnets = viper.GetStringSlice("prioritySubnets")
+		stateFilepath   = ""
+		systemd         = viper.GetBool("systemd")
+		token           = viper.GetString("token")
+		ttl             = viper.GetInt("ttl")
+	)
+
+	if ttl < 60 || ttl > 86400 {
+		// NOTE: 1 is a special value which means "use the default TTL"
+		if ttl != 1 {
+			log.WithFields(log.Fields{"ttl": ttl}).Warn("TTL must be between 60 and 86400; using Cloudflare's default")
+			ttl = 1
 		}
+	}
 
-		var (
-			domains         = viper.GetStringSlice("domains")
-			iface           = viper.GetString("iface")
-			prioritySubnets = viper.GetStringSlice("prioritySubnets")
-			stateFilepath   = ""
-			systemd         = viper.GetBool("systemd")
-			token           = viper.GetString("token")
-			ttl             = viper.GetInt("ttl")
-		)
+	if systemd {
+		stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_")))))
+	}
 
-		if ttl < 60 || ttl > 86400 {
-			// NOTE: 1 is a special value which means "use the default TTL"
-			if ttl != 1 {
-				log.WithFields(log.Fields{"ttl": ttl}).Warn("TTL must be between 60 and 86400; using Cloudflare's default")
-				ttl = 1
-			}
-		}
+	log.WithFields(log.Fields{
+		"domains":         domains,
+		"iface":           iface,
+		"prioritySubnets": prioritySubnets,
+		"stateFilepath":   stateFilepath,
+		"systemd":         systemd,
+		"token":           fmt.Sprintf("[%d characters]", len(token)),
+		"ttl":             ttl,
+	}).Info("Configuration")
 
-		if systemd {
-			stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_")))))
-		}
+	if len(domains) == 0 {
+		log.Fatal("No domains specified")
+	}
 
-		log.WithFields(log.Fields{
-			"domains":         domains,
-			"iface":           iface,
-			"prioritySubnets": prioritySubnets,
-			"stateFilepath":   stateFilepath,
-			"systemd":         systemd,
-			"token":           fmt.Sprintf("[%d characters]", len(token)),
-			"ttl":             ttl,
-		}).Info("Configuration")
+	addr := getIpv6Address(iface, prioritySubnets)
 
-		if len(domains) == 0 {
-			log.Fatal("No domains specified")
-		}
+	if systemd && addr == getOldIpv6Address(stateFilepath) {
+		log.Info("The address hasn't changed, nothing to do")
+		log.Info("To bypass this check run without --systemd flag or remove the state file: ", stateFilepath)
+		return
+	}
 
-		addr := getIpv6Address(iface, prioritySubnets)
+	api, err := cloudflare.NewWithAPIToken(token)
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't create API client")
+	}
 
-		if systemd && addr == getOldIpv6Address(stateFilepath) {
-			log.Info("The address hasn't changed, nothing to do")
-			log.Info("To bypass this check run without --systemd flag or remove the state file: ", stateFilepath)
-			return
-		}
+	for _, domain := range domains {
+		log.Info("Processing domain: ", domain)
+		processDomain(api, domain, addr, ttl)
+	}
 
-		api, err := cloudflare.NewWithAPIToken(token)
-		if err != nil {
-			log.WithError(err).Fatal("Couldn't create API client")
-		}
-
-		for _, domain := range domains {
-			log.Info("Processing domain: ", domain)
-			processDomain(api, domain, addr, ttl)
-		}
-
-		if systemd {
-			setOldIpv6Address(stateFilepath, addr)
-		}
-	},
+	if systemd {
+		setOldIpv6Address(stateFilepath, addr)
+	}
 }
 
 func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
