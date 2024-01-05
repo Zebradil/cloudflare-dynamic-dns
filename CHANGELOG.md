@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.5.1...2.6.0) (2024-01-05)
+
+
+### Features
+
+* add --version flag and log ([8fe1e51](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/8fe1e515ab8d8d0f6ea6ff8f023ff519eced6713))
+
 ## [2.5.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.5.0...2.5.1) (2024-01-03)
 
 
