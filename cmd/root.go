@@ -58,22 +58,72 @@ supported (with example values):
 
 var cfgFile string
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "cloudflare-dynamic-dns",
-	Short: "Updates AAAA records at Cloudflare according to the current IPv6 address",
-	Long:  longDescription,
-	Args:  cobra.NoArgs,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		level, err := log.ParseLevel(viper.GetString("log-level"))
-		if err != nil {
-			return err
-		}
-		log.Info("Setting log level to:", level)
-		log.SetLevel(level)
-		return nil
-	},
-	Run: rootCmdRun,
+func init() {
+	cobra.OnInitialize(initConfig)
+}
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		// Search config in home directory with name ".cloudflare-dynamic-dns" (without extension).
+		viper.AddConfigPath(home)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName(".cloudflare-dynamic-dns")
+	}
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		log.Info("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+func NewRootCmd(version, commit, date string) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:     "cloudflare-dynamic-dns",
+		Short:   "Updates AAAA records at Cloudflare according to the current IPv6 address",
+		Long:    longDescription,
+		Args:    cobra.NoArgs,
+		Version: fmt.Sprintf("%s, commit %s, built at %s", version, commit, date),
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			level, err := log.ParseLevel(viper.GetString("log-level"))
+			if err != nil {
+				return err
+			}
+			log.Info(cmd.Name(), " version ", cmd.Version)
+			log.Info("Setting log level to:", level)
+			log.SetLevel(level)
+			return nil
+		},
+		Run: rootCmdRun,
+	}
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
+
+	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
+In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.`)
+	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'.")
+	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
+	rootCmd.Flags().StringSlice("priority-subnets", []string{}, `IPv6 subnets to prefer over others.
+If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.`)
+	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address.")
+	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
+	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
+
+	err := viper.BindPFlags(rootCmd.Flags())
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't bind flags")
+	}
+
+	return rootCmd
 }
 
 func rootCmdRun(cmd *cobra.Command, args []string) {
@@ -227,57 +277,6 @@ func deleteDNSRecord(api *cloudflare.API, zoneID string, record cloudflare.DNSRe
 	err := api.DeleteDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), record.ID)
 	if err != nil {
 		log.WithError(err).WithField("record", record).Fatal("Couldn't delete DNS record")
-	}
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
-
-	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
-In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.`)
-	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'.")
-	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
-	rootCmd.Flags().StringSlice("priority-subnets", []string{}, `IPv6 subnets to prefer over others.
-If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.`)
-	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address.")
-	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
-	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
-
-	err := viper.BindPFlags(rootCmd.Flags())
-	if err != nil {
-		log.WithError(err).Fatal("Couldn't bind flags")
-	}
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".cloudflare-dynamic-dns" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".cloudflare-dynamic-dns")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		log.Info("Using config file:", viper.ConfigFileUsed())
 	}
 }
 
