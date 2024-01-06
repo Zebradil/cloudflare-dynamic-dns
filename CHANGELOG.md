@@ -1,3 +1,11 @@
+## [2.6.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.6.0...2.6.1) (2024-01-06)
+
+
+### Bug Fixes
+
+* improve EUI-64 detection by checking for the FFFE injection ([fd4da5b](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/fd4da5b0e98005c54d62fc847d543babc7ff68a8))
+* use 7th bit from the _left_ to identify EUI-64 addresses ([a144a4c](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/a144a4c2dfc7cc25d86bb9d11ae0a8d8b69d2cec))
+
 # [2.6.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.5.1...2.6.0) (2024-01-05)
 
 
