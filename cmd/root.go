@@ -316,7 +316,7 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 	// Sort addresses placing GUAs first
 	sort.Slice(ipv6Addresses, func(i, j int) bool {
 		return ipv6IsGUA(ipv6Addresses[i]) && !ipv6IsGUA(ipv6Addresses[j]) ||
-			ipv6IsLocalUnique(ipv6Addresses[i]) && !ipv6IsLocalUnique(ipv6Addresses[j])
+			ipv6IsEUI64(ipv6Addresses[i]) && !ipv6IsEUI64(ipv6Addresses[j])
 	})
 
 	netPrioritySubnets := []net.IPNet{}
@@ -356,7 +356,7 @@ func getIpv6Address(iface string, prioritySubnets []string) string {
 
 	log.WithField("addresses", ipv6Addresses).Infof("Found %d public IPv6 addresses, selected %s", len(ipv6Addresses), selectedIp)
 	ipIP := net.ParseIP(selectedIp)
-	if !ipv6IsLocalUnique(ipIP) {
+	if !ipv6IsEUI64(ipIP) {
 		log.Warn("The selected address doesn't have a unique EUI-64, it may change frequently")
 	}
 	if !ipv6IsGUA(ipIP) {
@@ -403,10 +403,11 @@ func ipv6IsGUA(ip net.IP) bool {
 	return ip[0]&0b11100000 == 0b00100000
 }
 
-// Custom function to check if an EUI-64 of an IPv6 address is locally unique.
-// If the seventh bit from the left of the Interface ID is 1, the address is
-// generated using the EUI-64 format. See RFC 4291, section 2.5.1.
-func ipv6IsLocalUnique(ip net.IP) bool {
-	// The Interface ID is the last 64 bits of the address.
-	return ip[8]&0b00000010 == 0b00000010
+// Custom function to check if an IPv6 address is generated using the EUI-64 format.
+// See RFC 4291, section 2.5.1.
+func ipv6IsEUI64(ip net.IP) bool {
+	// If the seventh bit from the left of the Interface ID is 1, and "FF FE" is
+	// found in the middle of the Interface ID, then the address is generated
+	// using the EUI-64 format.
+	return ip[8]&0b00000010 == 0b00000010 && ip[11] == 0xff && ip[12] == 0xfe
 }
