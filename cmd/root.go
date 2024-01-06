@@ -404,7 +404,9 @@ func ipv6IsGUA(ip net.IP) bool {
 }
 
 // Custom function to check if an EUI-64 of an IPv6 address is locally unique.
-// See RFC 4291, section 2.5.1.
+// If the seventh bit from the left of the Interface ID is 1, the address is
+// generated using the EUI-64 format. See RFC 4291, section 2.5.1.
 func ipv6IsLocalUnique(ip net.IP) bool {
-	return ip[8]&0b01000000 == 0b01000000
+	// The Interface ID is the last 64 bits of the address.
+	return ip[8]&0b00000010 == 0b00000010
 }
