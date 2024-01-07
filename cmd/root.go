@@ -17,31 +17,54 @@ import (
 )
 
 const longDescription = `
-Selects an IPv6 address from the specified network interface and updates
-AAAA records at Cloudflare for configured domains.
+Selects an IPv6 address from the specified network interface and updates AAAA
+records at Cloudflare for the configured domains.
 
-Requires a network interface name for a IPv6 address lookup, domain name[s]
-and Cloudflare API token with edit access rights to corresponding DNS zone.
+=== Required configuration options ===
 
-When multiple IPv6 addresses are found on the interface, the following rules
-are used to select the one to use:
+--iface:   network interface name to look up for an IPv6 address
+--domains: one or more domain names to assign the IPv6 address to
+--token:   Cloudflare API token with edit access rights to the DNS zone
+
+=== IPv6 address selection ===
+
+When multiple IPv6 addresses are found on the interface, the following rules are
+used to select the one to use:
     1. Only global unicast addresses (GUA) and unique local addresses (ULA) are
        considered.
     2. GUA addresses are preferred over ULA addresses.
     3. Unique EUI-64 addresses are preferred over randomly generated addresses.
     4. If priority subnets are specified, addresses from the subnet with the
-       highest priority are selected. The priority is determined by the order
-       of subnets specified on the command line or in the config file.
+       highest priority are selected. The priority is determined by the order of
+       subnets specified on the command line or in the config file.
 
-The program can be run in systemd mode, in which case the previously used
-IPv6 address is preserved between runs to avoid unnecessary calls to Cloudflare
+=== Daemon/systemd mode ===
+
+The program can be run in systemd mode, in which case the previously used IPv6
+address is preserved between runs to avoid unnecessary calls to the Cloudflare
 API. This mode is enabled by passing --systemd flag. The state file is stored
 in the directory specified by the STATE_DIRECTORY environment variable.
 
+=== Multihost mode (EXPERIMENTAL) ===
+
+In this mode it is possible to assign multiple IPv6 addresses to a single or
+multiple domains. For correct operation, this mode must be enabled on all hosts
+participating in the same domain and different host-ids must be specified for
+each host (see --host-id option). This mode is enabled by passing --multihost
+flag.
+
+In the multihost mode, the program will manage only the DNS records that have
+the same host-id as the one specified on the command line or in the config file.
+Any other records will be ignored. This allows multiple hosts to share the same
+domain without interfering with each other. The host-id is stored in the
+Cloudflare DNS comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
+
+=== Persistent configuration ===
+
 The program can be configured using a config file. The default location is
 $HOME/.cloudflare-dynamic-dns.yaml. The config file location can be overridden
-using --config flag. The config file format is YAML. The following options are
-supported (with example values):
+using the --config flag. The config file format is YAML. The following options
+are supported (with example values):
 
     iface: eth0
     token: cloudflare-api-token
@@ -54,6 +77,8 @@ supported (with example values):
       - 2001:db8:1::/48
     ttl: 180
     systemd: false
+    multihost: true
+    hostId: homelab-node-1
 `
 
 var cfgFile string
@@ -110,6 +135,11 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 
 	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
 In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.`)
+	rootCmd.Flags().Bool("multihost", false, `Enable multihost mode.
+In this mode it is possible to assign multiple IPv6 addresses to a single domain.
+For correct operation, this mode must be enabled on all participating hosts and
+different host-ids must be specified for each host (see --host-id option).`)
+	rootCmd.Flags().String("host-id", "", "Unique host identifier. Must be specified in multihost mode.")
 	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'.")
 	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
 	rootCmd.Flags().StringSlice("priority-subnets", []string{}, `IPv6 subnets to prefer over others.
@@ -136,7 +166,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	var (
 		domains         = viper.GetStringSlice("domains")
+		hostId          = viper.GetString("host-id")
 		iface           = viper.GetString("iface")
+		multihost       = viper.GetBool("multihost")
 		prioritySubnets = viper.GetStringSlice("prioritySubnets")
 		stateFilepath   = ""
 		systemd         = viper.GetBool("systemd")
@@ -158,7 +190,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	log.WithFields(log.Fields{
 		"domains":         domains,
+		"hostId":          hostId,
 		"iface":           iface,
+		"multihost":       multihost,
 		"prioritySubnets": prioritySubnets,
 		"stateFilepath":   stateFilepath,
 		"systemd":         systemd,
@@ -168,6 +202,10 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	if len(domains) == 0 {
 		log.Fatal("No domains specified")
+	}
+
+	if multihost && hostId == "" {
+		log.Fatal("Multihost mode requires host-id to be specified")
 	}
 
 	addr := getIpv6Address(iface, prioritySubnets)
@@ -185,7 +223,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	for _, domain := range domains {
 		log.Info("Processing domain: ", domain)
-		processDomain(api, domain, addr, ttl)
+		processDomain(api, domain, addr, ttl, multihost, hostId)
 	}
 
 	if systemd {
@@ -193,7 +231,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
+func processDomain(api *cloudflare.API, domain string, addr string, ttl int, multihost bool, hostId string) {
 	ctx := context.Background()
 
 	zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
@@ -202,6 +240,9 @@ func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
 	}
 
 	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
+	if multihost {
+		dnsRecordFilter.Comment = hostId
+	}
 	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
 	if err != nil {
 		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
@@ -209,6 +250,9 @@ func processDomain(api *cloudflare.API, domain string, addr string, ttl int) {
 	log.WithField("records", existingDNSRecords).Debug("Found DNS records")
 
 	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: ttl}
+	if multihost {
+		desiredDNSRecord.Comment = hostId
+	}
 
 	if len(existingDNSRecords) == 0 {
 		createNewDNSRecord(api, zoneID, desiredDNSRecord)
@@ -237,6 +281,7 @@ func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord clo
 		Type:    desiredDNSRecord.Type,
 		Name:    desiredDNSRecord.Name,
 		Content: desiredDNSRecord.Content,
+		Comment: desiredDNSRecord.Comment,
 		TTL:     desiredDNSRecord.TTL,
 	})
 	if err != nil {
@@ -261,6 +306,7 @@ func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DN
 		Type:    newRecord.Type,
 		Name:    newRecord.Name,
 		Content: newRecord.Content,
+		Comment: &newRecord.Comment,
 		TTL:     newRecord.TTL,
 	})
 	if err != nil {

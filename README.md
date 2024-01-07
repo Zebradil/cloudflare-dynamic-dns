@@ -1,34 +1,58 @@
 # Dynamic DNS client for Cloudflare
 
-A small tool for updating IPv6 address at Cloudflare DNS with the currently detected address of the specified network interface.
+A small tool for updating the IPv6 address at Cloudflare DNS with the currently detected address of the specified network interface.
 
 It is provided with systemd service and timer files for automation.
 
 ```text
-Selects an IPv6 address from the specified network interface and updates
-AAAA records at Cloudflare for configured domains.
+Selects an IPv6 address from the specified network interface and updates AAAA
+records at Cloudflare for the configured domains.
 
-Requires a network interface name for a IPv6 address lookup, domain name[s]
-and Cloudflare API token with edit access rights to corresponding DNS zone.
+=== Required configuration options ===
 
-When multiple IPv6 addresses are found on the interface, the following rules
-are used to select the one to use:
+--iface:   network interface name to look up for an IPv6 address
+--domains: one or more domain names to assign the IPv6 address to
+--token:   Cloudflare API token with edit access rights to the DNS zone
+
+=== IPv6 address selection ===
+
+When multiple IPv6 addresses are found on the interface, the following rules are
+used to select the one to use:
     1. Only global unicast addresses (GUA) and unique local addresses (ULA) are
        considered.
     2. GUA addresses are preferred over ULA addresses.
-    3. If priority subnets are specified, addresses from the subnet with the
-       highest priority are selected. The priority is determined by the order
-       of subnets specified on the command line or in the config file.
+    3. Unique EUI-64 addresses are preferred over randomly generated addresses.
+    4. If priority subnets are specified, addresses from the subnet with the
+       highest priority are selected. The priority is determined by the order of
+       subnets specified on the command line or in the config file.
 
-The program can be run in systemd mode, in which case the previously used
-IPv6 address is preserved between runs to avoid unnecessary calls to Cloudflare
+=== Daemon/systemd mode ===
+
+The program can be run in systemd mode, in which case the previously used IPv6
+address is preserved between runs to avoid unnecessary calls to the Cloudflare
 API. This mode is enabled by passing --systemd flag. The state file is stored
 in the directory specified by the STATE_DIRECTORY environment variable.
 
+=== Multihost mode (EXPERIMENTAL) ===
+
+In this mode it is possible to assign multiple IPv6 addresses to a single or
+multiple domains. For correct operation, this mode must be enabled on all hosts
+participating in the same domain and different host-ids must be specified for
+each host (see --host-id option). This mode is enabled by passing --multihost
+flag.
+
+In the multihost mode, the program will manage only the DNS records that have
+the same host-id as the one specified on the command line or in the config file.
+Any other records will be ignored. This allows multiple hosts to share the same
+domain without interfering with each other. The host-id is stored in the
+Cloudflare DNS comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
+
+=== Persistent configuration ===
+
 The program can be configured using a config file. The default location is
 $HOME/.cloudflare-dynamic-dns.yaml. The config file location can be overridden
-using --config flag. The config file format is YAML. The following options are
-supported (with example values):
+using the --config flag. The config file format is YAML. The following options
+are supported (with example values):
 
     iface: eth0
     token: cloudflare-api-token
@@ -41,6 +65,8 @@ supported (with example values):
       - 2001:db8:1::/48
     ttl: 180
     systemd: false
+    multihost: true
+    hostId: homelab-node-1
 
 Usage:
   cloudflare-dynamic-dns [flags]
@@ -49,14 +75,20 @@ Flags:
       --config string              config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
       --domains strings            Domain names to assign the IPv6 address to.
   -h, --help                       help for cloudflare-dynamic-dns
+      --host-id string             Unique host identifier. Must be specified in multihost mode.
       --iface string               Network interface to look up for a IPv6 address.
       --log-level string           Sets logging level: trace, debug, info, warning, error, fatal, panic. (default "info")
+      --multihost                  Enable multihost mode.
+                                   In this mode it is possible to assign multiple IPv6 addresses to a single domain.
+                                   For correct operation, this mode must be enabled on all participating hosts and
+                                   different host-ids must be specified for each host (see --host-id option).
       --priority-subnets strings   IPv6 subnets to prefer over others.
                                    If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.
       --systemd                    Switch operation mode for running in systemd.
                                    In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.
       --token string               Cloudflare API token with DNS edit access rights.
       --ttl int                    Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
+  -v, --version                    version for cloudflare-dynamic-dns
 ```
 
 ## Installation
