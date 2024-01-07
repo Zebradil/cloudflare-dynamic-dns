@@ -7,7 +7,7 @@ After=network-online.target nss-lookup.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/cloudflare-dynamic-dns --systemd --config=/etc/cloudflare-dynamic-dns/config.d/%I.yaml
+ExecStart=/usr/bin/cloudflare-dynamic-dns --with-state-file --config=/etc/cloudflare-dynamic-dns/config.d/%I.yaml
 StateDirectory=cloudflare-dynamic-dns
 
 [Install]

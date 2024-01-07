@@ -41,15 +41,27 @@ used to select the one to use:
        highest priority are selected. The priority is determined by the order of
        subnets specified on the command line or in the config file.
 
-Daemon/systemd mode
+Daemon mode
 --------------------------------------------------------------------------------
 
-The program can be run in systemd mode, in which case the previously used IPv6
-address is preserved between runs to avoid unnecessary calls to the Cloudflare
-API. This mode is enabled by passing --systemd flag. The state file is stored
-in the directory specified by the STATE_DIRECTORY environment variable. This
-variable is automatically set by systemd. It must be set manually when running
-the program outside of systemd.
+By default, the program runs once and exits. This mode of operation can be
+changed by setting the --run-every flag to a duration greater than 1m. In this
+case, the program will run repeatedly, waiting the duration between runs. It
+will stop if killed or if failed.
+
+State file
+--------------------------------------------------------------------------------
+
+Setting --with-state-file makes the program to retain the previously used IPv6
+address between runs to avoid unnecessary calls to the Cloudflare API.
+
+The flag can be used with or without a value. The value is used as the state
+file path. When used without a value, the state file is named after the
+interface name and the domains, and is stored either in the current directory or
+in the directory specified by the STATE_DIRECTORY environment variable.
+
+The STATE_DIRECTORY environment variable is automatically set by systemd. It
+can be set manually when running the program outside of systemd.
 
 Multihost mode (EXPERIMENTAL)
 --------------------------------------------------------------------------------
@@ -86,7 +98,7 @@ are supported (with example values):
       - 2001:db8:1::/48
     ttl: 180
     runEvery: 10m
-    systemd: false
+    withStateFile: /tmp/cfddns-eth0.state
     multihost: true
     hostId: homelab-node-1
 
@@ -107,7 +119,7 @@ For example:
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
-    CFDDNS_SYSTEMD=false
+    CFDDNS_WITH_STATE_FILE=/tmp/cfddns-eth0.state
     CFDDNS_MULTIHOST=true
     CFDDNS_HOST_ID=homelab-node-1
 `
@@ -120,7 +132,6 @@ type runConfig struct {
 	prioritySubnets []string
 	runEvery        time.Duration
 	stateFilepath   string
-	systemd         bool
 	token           string
 	ttl             int
 }
@@ -178,9 +189,11 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
 
-	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
-In this mode previously used ipv6 address is preserved
-between runs to avoid unnecessary calls to CloudFlare API.`)
+	rootCmd.Flags().String("with-state-file", "", `Enables usage of a state file.
+In this mode, previously used ipv6 address is preserved
+between runs to avoid unnecessary calls to CloudFlare API.
+Automatically selects where to store the state file if no
+value is specified. See the State file section in usage.`)
 	rootCmd.Flags().String("run-every", "", `Re-run the program every N duration until it's killed.
 The format is described at https://pkg.go.dev/time#ParseDuration.
 The minimum duration is 1m. Examples: 4h30m15s, 5m.`)
@@ -228,17 +241,17 @@ func collectConfiguration() runConfig {
 	}
 
 	var (
-		domains         = viper.GetStringSlice("domains")
-		hostId          = viper.GetString("host-id")
-		iface           = viper.GetString("iface")
-		multihost       = viper.GetBool("multihost")
-		prioritySubnets = viper.GetStringSlice("prioritySubnets")
-		runEvery        = viper.GetString("run-every")
-		sleepDuration   = time.Duration(0)
-		stateFilepath   = ""
-		systemd         = viper.GetBool("systemd")
-		token           = viper.GetString("token")
-		ttl             = viper.GetInt("ttl")
+		domains          = viper.GetStringSlice("domains")
+		hostId           = viper.GetString("host-id")
+		iface            = viper.GetString("iface")
+		multihost        = viper.GetBool("multihost")
+		prioritySubnets  = viper.GetStringSlice("prioritySubnets")
+		runEvery         = viper.GetString("run-every")
+		sleepDuration    = time.Duration(0)
+		stateFilepath    = viper.GetString("with-state-file")
+		stateFileEnabled = viper.IsSet("with-state-file")
+		token            = viper.GetString("token")
+		ttl              = viper.GetInt("ttl")
 	)
 
 	if ttl < 60 || ttl > 86400 {
@@ -261,12 +274,14 @@ func collectConfiguration() runConfig {
 		}
 	}
 
-	if systemd {
+	if stateFileEnabled && stateFilepath == "" {
+		stateFilepath := fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_"))))
+		// If STATE_DIRECTORY is set, use it as the state file directory,
+		// otherwise use the current directory.
 		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
-			stateFilename := fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_"))))
-			stateFilepath = filepath.Join(stateDir, stateFilename)
+			stateFilepath = filepath.Join(stateDir, stateFilepath)
 		} else {
-			log.Fatal("STATE_DIRECTORY environment variable must be set when running in systemd mode")
+			log.Info("STATE_DIRECTORY environment is not set, using the current directory for the state file")
 		}
 	}
 
@@ -278,7 +293,6 @@ func collectConfiguration() runConfig {
 		prioritySubnets: prioritySubnets,
 		runEvery:        sleepDuration,
 		stateFilepath:   stateFilepath,
-		systemd:         systemd,
 		token:           token,
 		ttl:             ttl,
 	}
@@ -304,9 +318,9 @@ func printConfig(cfg runConfig) {
 func run(cfg runConfig) {
 	addr := getIpv6Address(cfg.iface, cfg.prioritySubnets)
 
-	if cfg.systemd && addr == getOldIpv6Address(cfg.stateFilepath) {
+	if cfg.stateFilepath != "" && addr == getOldIpv6Address(cfg.stateFilepath) {
 		log.Info("The address hasn't changed, nothing to do")
-		log.Info("To bypass this check run without --systemd flag or remove the state file: ", cfg.stateFilepath)
+		log.Info("To bypass this check run without the --with-state-file flag or remove the state file: ", cfg.stateFilepath)
 		return
 	}
 
@@ -320,7 +334,7 @@ func run(cfg runConfig) {
 		processDomain(api, domain, addr, cfg)
 	}
 
-	if cfg.systemd {
+	if cfg.stateFilepath != "" {
 		setOldIpv6Address(cfg.stateFilepath, addr)
 	}
 }

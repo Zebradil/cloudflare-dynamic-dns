@@ -41,15 +41,27 @@ used to select the one to use:
        highest priority are selected. The priority is determined by the order of
        subnets specified on the command line or in the config file.
 
-Daemon/systemd mode
+Daemon mode
 --------------------------------------------------------------------------------
 
-The program can be run in systemd mode, in which case the previously used IPv6
-address is preserved between runs to avoid unnecessary calls to the Cloudflare
-API. This mode is enabled by passing --systemd flag. The state file is stored
-in the directory specified by the STATE_DIRECTORY environment variable. This
-variable is automatically set by systemd. It must be set manually when running
-the program outside of systemd.
+By default, the program runs once and exits. This mode of operation can be
+changed by setting the --run-every flag to a duration greater than 1m. In this
+case, the program will run repeatedly, waiting the duration between runs. It
+will stop if killed or if failed.
+
+State file
+--------------------------------------------------------------------------------
+
+Setting --with-state-file makes the program to retain the previously used IPv6
+address between runs to avoid unnecessary calls to the Cloudflare API.
+
+The flag can be used with or without a value. The value is used as the state
+file path. When used without a value, the state file is named after the
+interface name and the domains, and is stored either in the current directory or
+in the directory specified by the STATE_DIRECTORY environment variable.
+
+The STATE_DIRECTORY environment variable is automatically set by systemd. It
+can be set manually when running the program outside of systemd.
 
 Multihost mode (EXPERIMENTAL)
 --------------------------------------------------------------------------------
@@ -86,7 +98,7 @@ are supported (with example values):
       - 2001:db8:1::/48
     ttl: 180
     runEvery: 10m
-    systemd: false
+    withStateFile: /tmp/cfddns-eth0.state
     multihost: true
     hostId: homelab-node-1
 
@@ -107,7 +119,7 @@ For example:
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
-    CFDDNS_SYSTEMD=false
+    CFDDNS_WITH_STATE_FILE=/tmp/cfddns-eth0.state
     CFDDNS_MULTIHOST=true
     CFDDNS_HOST_ID=homelab-node-1
 
@@ -131,13 +143,15 @@ Flags:
       --run-every string           Re-run the program every N duration until it's killed.
                                    The format is described at https://pkg.go.dev/time#ParseDuration.
                                    The minimum duration is 1m. Examples: 4h30m15s, 5m.
-      --systemd                    Switch operation mode for running in systemd.
-                                   In this mode previously used ipv6 address is preserved
-                                   between runs to avoid unnecessary calls to CloudFlare API.
       --token string               Cloudflare API token with DNS edit access rights.
       --ttl int                    Time to live, in seconds, of the DNS record.
                                    Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
   -v, --version                    version for cloudflare-dynamic-dns
+      --with-state-file string     Enables usage of a state file.
+                                   In this mode, previously used ipv6 address is preserved
+                                   between runs to avoid unnecessary calls to CloudFlare API.
+                                   Automatically selects where to store the state file if no
+                                   value is specified. See the State file section in usage.
 </pre>
 <!-- END CFDDNS_USAGE -->
 
