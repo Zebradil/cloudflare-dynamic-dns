@@ -109,6 +109,18 @@ For example:
     CFDDNS_HOST_ID=homelab-node-1
 `
 
+type runConfig struct {
+	domains         []string
+	hostId          string
+	iface           string
+	multihost       bool
+	prioritySubnets []string
+	stateFilepath   string
+	systemd         bool
+	token           string
+	ttl             int
+}
+
 var cfgFile string
 
 func init() {
@@ -163,16 +175,19 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
 
 	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
-In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.`)
+In this mode previously used ipv6 address is preserved
+between runs to avoid unnecessary calls to CloudFlare API.`)
 	rootCmd.Flags().Bool("multihost", false, `Enable multihost mode.
 In this mode it is possible to assign multiple IPv6 addresses to a single domain.
 For correct operation, this mode must be enabled on all participating hosts and
 different host-ids must be specified for each host (see --host-id option).`)
 	rootCmd.Flags().String("host-id", "", "Unique host identifier. Must be specified in multihost mode.")
-	rootCmd.Flags().Int("ttl", 1, "Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'.")
+	rootCmd.Flags().Int("ttl", 1, `Time to live, in seconds, of the DNS record.
+Must be between 60 and 86400, or 1 for 'automatic'.`)
 	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
 	rootCmd.Flags().StringSlice("priority-subnets", []string{}, `IPv6 subnets to prefer over others.
-If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.`)
+If multiple IPv6 addresses are found on the interface,
+the one from the subnet with the highest priority is used.`)
 	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address.")
 	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
 	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
@@ -186,6 +201,10 @@ If multiple IPv6 addresses are found on the interface, the one from the subnet w
 }
 
 func rootCmdRun(cmd *cobra.Command, args []string) {
+	run(collectConfiguration())
+}
+
+func collectConfiguration() runConfig {
 	if viper.ConfigFileUsed() != "" {
 		log.WithField("config", viper.ConfigFileUsed()).Debug("Using config file")
 		checkConfigAccessMode(viper.ConfigFileUsed())
@@ -222,17 +241,19 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"domains":         domains,
-		"hostId":          hostId,
-		"iface":           iface,
-		"multihost":       multihost,
-		"prioritySubnets": prioritySubnets,
-		"stateFilepath":   stateFilepath,
-		"systemd":         systemd,
-		"token":           fmt.Sprintf("[%d characters]", len(token)),
-		"ttl":             ttl,
-	}).Info("Configuration")
+	cfg := runConfig{
+		domains:         domains,
+		hostId:          hostId,
+		iface:           iface,
+		multihost:       multihost,
+		prioritySubnets: prioritySubnets,
+		stateFilepath:   stateFilepath,
+		systemd:         systemd,
+		token:           token,
+		ttl:             ttl,
+	}
+
+	printConfig(cfg)
 
 	if len(domains) == 0 {
 		log.Fatal("No domains specified")
@@ -242,30 +263,39 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("Multihost mode requires host-id to be specified")
 	}
 
-	addr := getIpv6Address(iface, prioritySubnets)
+	return cfg
+}
 
-	if systemd && addr == getOldIpv6Address(stateFilepath) {
+func printConfig(cfg runConfig) {
+	cfg.token = fmt.Sprintf("[%d characters]", len(cfg.token))
+	log.WithField("config", cfg).Info("Configuration")
+}
+
+func run(cfg runConfig) {
+	addr := getIpv6Address(cfg.iface, cfg.prioritySubnets)
+
+	if cfg.systemd && addr == getOldIpv6Address(cfg.stateFilepath) {
 		log.Info("The address hasn't changed, nothing to do")
-		log.Info("To bypass this check run without --systemd flag or remove the state file: ", stateFilepath)
+		log.Info("To bypass this check run without --systemd flag or remove the state file: ", cfg.stateFilepath)
 		return
 	}
 
-	api, err := cloudflare.NewWithAPIToken(token)
+	api, err := cloudflare.NewWithAPIToken(cfg.token)
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't create API client")
 	}
 
-	for _, domain := range domains {
+	for _, domain := range cfg.domains {
 		log.Info("Processing domain: ", domain)
-		processDomain(api, domain, addr, ttl, multihost, hostId)
+		processDomain(api, domain, addr, cfg)
 	}
 
-	if systemd {
-		setOldIpv6Address(stateFilepath, addr)
+	if cfg.systemd {
+		setOldIpv6Address(cfg.stateFilepath, addr)
 	}
 }
 
-func processDomain(api *cloudflare.API, domain string, addr string, ttl int, multihost bool, hostId string) {
+func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfig) {
 	ctx := context.Background()
 
 	zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
@@ -274,8 +304,8 @@ func processDomain(api *cloudflare.API, domain string, addr string, ttl int, mul
 	}
 
 	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
-	if multihost {
-		dnsRecordFilter.Comment = hostId
+	if cfg.multihost {
+		dnsRecordFilter.Comment = cfg.hostId
 	}
 	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
 	if err != nil {
@@ -283,9 +313,9 @@ func processDomain(api *cloudflare.API, domain string, addr string, ttl int, mul
 	}
 	log.WithField("records", existingDNSRecords).Debug("Found DNS records")
 
-	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: ttl}
-	if multihost {
-		desiredDNSRecord.Comment = hostId
+	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: cfg.ttl}
+	if cfg.multihost {
+		desiredDNSRecord.Comment = cfg.hostId
 	}
 
 	if len(existingDNSRecords) == 0 {
