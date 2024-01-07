@@ -46,7 +46,9 @@ Daemon/systemd mode
 The program can be run in systemd mode, in which case the previously used IPv6
 address is preserved between runs to avoid unnecessary calls to the Cloudflare
 API. This mode is enabled by passing --systemd flag. The state file is stored
-in the directory specified by the STATE_DIRECTORY environment variable.
+in the directory specified by the STATE_DIRECTORY environment variable. This
+variable is automatically set by systemd. It must be set manually when running
+the program outside of systemd.
 
 Multihost mode (EXPERIMENTAL)
 --------------------------------------------------------------------------------
@@ -212,7 +214,12 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	if systemd {
-		stateFilepath = filepath.Join(os.Getenv("STATE_DIRECTORY"), fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_")))))
+		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
+			stateFilename := fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_"))))
+			stateFilepath = filepath.Join(stateDir, stateFilename)
+		} else {
+			log.Fatal("STATE_DIRECTORY environment variable must be set when running in systemd mode")
+		}
 	}
 
 	log.WithFields(log.Fields{
