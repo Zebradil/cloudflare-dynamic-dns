@@ -365,37 +365,70 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	}
 
 	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
-	if cfg.multihost {
-		dnsRecordFilter.Comment = cfg.hostId
-	}
 	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
 	if err != nil {
 		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
 	}
-	log.WithField("records", existingDNSRecords).Debug("Found DNS records")
+	// If there is already a record with the same address, we want to process it
+	// first. Cloudflare API doesn't allow creating multiple records with the
+	// same address, which may happen in the multihost mode.
+	sort.Slice(existingDNSRecords, func(i, j int) bool {
+		return existingDNSRecords[i].Content == addr
+	})
+	for _, record := range existingDNSRecords {
+		log.WithFields(log.Fields{
+			"comment": record.Comment,
+			"content": record.Content,
+			"domain":  record.Name,
+			"proxied": *record.Proxied,
+			"ttl":     record.TTL,
+		}).Debug("Found DNS record")
+	}
 
 	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: cfg.ttl}
 	if cfg.multihost {
 		desiredDNSRecord.Comment = cfg.hostId
 	}
 
+	// If there are no existing records, create a new one.
 	if len(existingDNSRecords) == 0 {
 		createNewDNSRecord(api, zoneID, desiredDNSRecord)
-	} else if len(existingDNSRecords) == 1 {
-		updateDNSRecord(api, zoneID, existingDNSRecords[0], desiredDNSRecord)
-	} else {
-		updated := false
-		for oldRecord := range existingDNSRecords {
-			if !updated && existingDNSRecords[oldRecord].Content == desiredDNSRecord.Content {
-				updateDNSRecord(api, zoneID, existingDNSRecords[oldRecord], desiredDNSRecord)
-				updated = true
-			} else {
-				deleteDNSRecord(api, zoneID, existingDNSRecords[oldRecord])
-			}
+		return
+	}
+
+	// Look through all existing records.
+	// Update the matching record if found, delete the rest.
+	// If no matching record is found, create a new one.
+	updated := false
+	for _, record := range existingDNSRecords {
+		// If a record has the same address as the desired record, update it (ttl
+		// or comment may have changed).
+		// If a record has the same comment as the desired record and multihost is
+		// enabled, update it (address or ttl may have changed).
+		if !updated && (record.Content == addr || cfg.multihost && record.Comment == cfg.hostId) {
+			updateDNSRecord(api, zoneID, record, desiredDNSRecord)
+			updated = true
+			continue
 		}
-		if !updated {
-			createNewDNSRecord(api, zoneID, desiredDNSRecord)
+
+		// In multihost mode, delete all records with the same host-id as the
+		// current host. This should not happen during normal operation.
+		if updated && record.Comment == cfg.hostId && cfg.multihost {
+			log.WithField("record", record).
+				Warn("Found another record with the same host-id as the current host, deleting it")
+			deleteDNSRecord(api, zoneID, record)
+			continue
 		}
+
+		// In single host mode, delete all other records.
+		if updated && !cfg.multihost {
+			deleteDNSRecord(api, zoneID, record)
+			continue
+		}
+	}
+
+	if !updated {
+		createNewDNSRecord(api, zoneID, desiredDNSRecord)
 	}
 }
 
@@ -416,8 +449,9 @@ func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord clo
 
 func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DNSRecord, newRecord cloudflare.DNSRecord) {
 	ctx := context.Background()
-	if oldRecord.Content == newRecord.Content && oldRecord.TTL ==
-		newRecord.TTL {
+	if oldRecord.Content == newRecord.Content &&
+		oldRecord.TTL == newRecord.TTL &&
+		oldRecord.Comment == newRecord.Comment {
 		log.WithField("record", oldRecord).Info("DNS record is up to date")
 		return
 	}
