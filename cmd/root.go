@@ -74,9 +74,11 @@ flag.
 
 In the multihost mode, the program will manage only the DNS records that have
 the same host-id as the one specified on the command line or in the config file.
-Any other records will be ignored. This allows multiple hosts to share the same
-domain without interfering with each other. The host-id is stored in the
-Cloudflare DNS comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
+If an existing record has no host-id but has the same address as the target one,
+it will be claimed by this host via setting the corresponding host-id. Any other
+records will be ignored. This allows multiple hosts to share the same domain
+without interfering with each other. The host-id is stored in the Cloudflare DNS
+comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
 
 Persistent configuration
 --------------------------------------------------------------------------------
