@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+rdm:usage() {
+    cat <<EOF
+Usage: $(basename "$0") FILE
+
+Updates a given markdown file by injecting the output of \`go run main.go --help\` into it.
+
+Arguments:
+  FILE        Markdown file to update.
+EOF
+}
+
+# Updates a given markdown file by running a number of injectors on it.
+# Args:
+#  $1: Markdown file to update.
+rdm:update() {
+    if [[ $# -ne 1 ]]; then
+        rdm:usage
+        exit 1
+    fi
+
+    local file="${1:?Specify file}"
+    local tmp_file
+    tmp_file="$(mktemp --suffix='.md')"
+    cp "$file" "$tmp_file"
+
+    rdm:inject_usage "$tmp_file"
+
+    mv "$tmp_file" "$file"
+}
+
+# Injects the output of `go run main.go --help` into the provided markdown file.
+# Args:
+#  $1: Markdown file to update.
+rdm:inject_usage() {
+    local begin_marker='<!-- BEGIN CFDDNS_USAGE -->'
+    local end_marker='<!-- END CFDDNS_USAGE -->'
+
+    local file="${1:?Specify file}"
+    local tmp_file
+    tmp_file="$(mktemp --suffix='.usage.md')"
+
+    sed -n "1,/$begin_marker/p" "$file" >"$tmp_file"
+
+    (
+        cd "$ROOT"
+        go run main.go --help >>"$tmp_file"
+    )
+
+    sed -n "/$end_marker/,\$p" "$file" >>"$tmp_file"
+    cp "$tmp_file" "$file"
+    rm "$tmp_file"
+}
+
+# Execute the main function if the script is not being sourced.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    rdm:update "$@"
+fi

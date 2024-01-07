@@ -11,7 +11,14 @@ A small tool for updating the IPv6 address at Cloudflare DNS with the currently 
 - Configuration via command line arguments, config file or environment variables
 - Support for multiple hosts in the same domain (experimental)
 
-```text
+## Usage
+
+The rest of this section is the output of `cloudflare-dynamic-dns --help`.
+
+<hr>
+
+<!-- BEGIN CFDDNS_USAGE -->
+
 Selects an IPv6 address from the specified network interface and updates AAAA
 records at Cloudflare for the configured domains.
 
@@ -115,7 +122,7 @@ Flags:
       --token string               Cloudflare API token with DNS edit access rights.
       --ttl int                    Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
   -v, --version                    version for cloudflare-dynamic-dns
-```
+<!-- END CFDDNS_USAGE -->
 
 ## Installation
 
