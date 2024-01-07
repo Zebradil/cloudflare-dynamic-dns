@@ -1,3 +1,10 @@
+# [2.7.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.6.1...2.7.0) (2024-01-07)
+
+
+### Features
+
+* add experimental multihost mode ([c5bcb0a](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/c5bcb0a45ab9797140863c379080afbfd898ea9c))
+
 ## [2.6.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.6.0...2.6.1) (2024-01-06)
 
 
