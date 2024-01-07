@@ -203,7 +203,9 @@ The minimum duration is 1m. Examples: 4h30m15s, 5m.`)
 In this mode it is possible to assign multiple IPv6 addresses to a single domain.
 For correct operation, this mode must be enabled on all participating hosts and
 different host-ids must be specified for each host (see --host-id option).`)
-	rootCmd.Flags().String("host-id", "", "Unique host identifier. Must be specified in multihost mode.")
+	rootCmd.Flags().String("host-id", "", `Unique host identifier. Must be specified in multihost mode.
+Must be a valid DNS label. It is stored in the Cloudflare DNS comments field in
+the format: "host-id (managed by cloudflare-dynamic-dns)"`)
 	rootCmd.Flags().Int("ttl", 1, `Time to live, in seconds, of the DNS record.
 Must be between 60 and 86400, or 1 for 'automatic'.`)
 	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
@@ -285,6 +287,10 @@ func collectConfiguration() runConfig {
 		} else {
 			log.Info("STATE_DIRECTORY environment is not set, using the current directory for the state file")
 		}
+	}
+
+	if multihost && hostId != "" {
+		hostId = fmt.Sprintf("%s (managed by cloudflare-dynamic-dns)", hostId)
 	}
 
 	cfg := runConfig{
@@ -398,6 +404,12 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 		return
 	}
 
+	sameHostFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
+		recHost := strings.Split(record.Comment, " ")[0]
+		cfgHost := strings.Split(cfg.hostId, " ")[0]
+		return recHost == cfgHost
+	}
+
 	// Look through all existing records.
 	// Update the matching record if found, delete the rest.
 	// If no matching record is found, create a new one.
@@ -407,7 +419,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 		// or comment may have changed).
 		// If a record has the same comment as the desired record and multihost is
 		// enabled, update it (address or ttl may have changed).
-		if !updated && (record.Content == addr || cfg.multihost && record.Comment == cfg.hostId) {
+		if !updated && (record.Content == addr || cfg.multihost && sameHostFn(record, cfg)) {
 			updateDNSRecord(api, zoneID, record, desiredDNSRecord)
 			updated = true
 			continue
