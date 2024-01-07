@@ -299,6 +299,14 @@ func collectConfiguration() runConfig {
 
 	logConfig(cfg)
 
+	if token == "" {
+		log.Fatal("No token specified")
+	}
+
+	if iface == "" {
+		log.Fatal("No interface specified")
+	}
+
 	if len(domains) == 0 {
 		log.Fatal("No domains specified")
 	}
