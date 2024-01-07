@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	log "github.com/sirupsen/logrus"
@@ -84,6 +85,7 @@ are supported (with example values):
       - 2001:db8::/32
       - 2001:db8:1::/48
     ttl: 180
+    runEvery: 10m
     systemd: false
     multihost: true
     hostId: homelab-node-1
@@ -104,6 +106,7 @@ For example:
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_TTL=180
+    CFDDNS_RUN_EVERY=10m
     CFDDNS_SYSTEMD=false
     CFDDNS_MULTIHOST=true
     CFDDNS_HOST_ID=homelab-node-1
@@ -115,6 +118,7 @@ type runConfig struct {
 	iface           string
 	multihost       bool
 	prioritySubnets []string
+	runEvery        time.Duration
 	stateFilepath   string
 	systemd         bool
 	token           string
@@ -177,6 +181,9 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	rootCmd.Flags().Bool("systemd", false, `Switch operation mode for running in systemd.
 In this mode previously used ipv6 address is preserved
 between runs to avoid unnecessary calls to CloudFlare API.`)
+	rootCmd.Flags().String("run-every", "", `Re-run the program every N duration until it's killed.
+The format is described at https://pkg.go.dev/time#ParseDuration.
+The minimum duration is 1m. Examples: 4h30m15s, 5m.`)
 	rootCmd.Flags().Bool("multihost", false, `Enable multihost mode.
 In this mode it is possible to assign multiple IPv6 addresses to a single domain.
 For correct operation, this mode must be enabled on all participating hosts and
@@ -201,7 +208,15 @@ the one from the subnet with the highest priority is used.`)
 }
 
 func rootCmdRun(cmd *cobra.Command, args []string) {
-	run(collectConfiguration())
+	cfg := collectConfiguration()
+	for {
+		run(cfg)
+		if cfg.runEvery == 0 {
+			break
+		}
+		log.Info("Sleeping for ", cfg.runEvery)
+		time.Sleep(cfg.runEvery)
+	}
 }
 
 func collectConfiguration() runConfig {
@@ -218,6 +233,8 @@ func collectConfiguration() runConfig {
 		iface           = viper.GetString("iface")
 		multihost       = viper.GetBool("multihost")
 		prioritySubnets = viper.GetStringSlice("prioritySubnets")
+		runEvery        = viper.GetString("run-every")
+		sleepDuration   = time.Duration(0)
 		stateFilepath   = ""
 		systemd         = viper.GetBool("systemd")
 		token           = viper.GetString("token")
@@ -229,6 +246,18 @@ func collectConfiguration() runConfig {
 		if ttl != 1 {
 			log.WithFields(log.Fields{"ttl": ttl}).Warn("TTL must be between 60 and 86400; using Cloudflare's default")
 			ttl = 1
+		}
+	}
+
+	if runEvery != "" {
+		parsedDuration, err := time.ParseDuration(runEvery)
+		if err != nil {
+			log.WithError(err).Fatal("Can't parse provided run-every duration")
+		}
+		if parsedDuration >= time.Minute {
+			sleepDuration = parsedDuration
+		} else {
+			log.Warn("Provided run-every duration is less then 1 minute, will run just once")
 		}
 	}
 
@@ -247,6 +276,7 @@ func collectConfiguration() runConfig {
 		iface:           iface,
 		multihost:       multihost,
 		prioritySubnets: prioritySubnets,
+		runEvery:        sleepDuration,
 		stateFilepath:   stateFilepath,
 		systemd:         systemd,
 		token:           token,
