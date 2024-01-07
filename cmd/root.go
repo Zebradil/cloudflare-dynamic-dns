@@ -95,6 +95,7 @@ underscores, and convert to uppercase. List values are specified as a single
 string containing elements separated by spaces.
 For example:
 
+    CFDDNS_CONFIG=/path/to/config.yaml
     CFDDNS_IFACE=eth0
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
@@ -113,6 +114,14 @@ func init() {
 }
 
 func initConfig() {
+	viper.SetEnvPrefix("CFDDNS")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	viper.AutomaticEnv()
+
+	if cfgFile == "" {
+		cfgFile = viper.GetString("config")
+	}
+
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
@@ -123,10 +132,6 @@ func initConfig() {
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".cloudflare-dynamic-dns")
 	}
-
-	viper.SetEnvPrefix("CFDDNS")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
 		log.Info("Using config file:", viper.ConfigFileUsed())
