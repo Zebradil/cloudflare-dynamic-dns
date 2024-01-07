@@ -72,6 +72,7 @@ are supported (with example values):
       - example.com
       - "*.example.com"
     # --- optional fields ---
+    logLevel: info
     prioritySubnets:
       - 2001:db8::/32
       - 2001:db8:1::/48
