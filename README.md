@@ -47,7 +47,9 @@ Daemon/systemd mode
 The program can be run in systemd mode, in which case the previously used IPv6
 address is preserved between runs to avoid unnecessary calls to the Cloudflare
 API. This mode is enabled by passing --systemd flag. The state file is stored
-in the directory specified by the STATE_DIRECTORY environment variable.
+in the directory specified by the STATE_DIRECTORY environment variable. This
+variable is automatically set by systemd. It must be set manually when running
+the program outside of systemd.
 
 Multihost mode (EXPERIMENTAL)
 --------------------------------------------------------------------------------
@@ -83,6 +85,7 @@ are supported (with example values):
       - 2001:db8::/32
       - 2001:db8:1::/48
     ttl: 180
+    runEvery: 10m
     systemd: false
     multihost: true
     hostId: homelab-node-1
@@ -96,12 +99,14 @@ underscores, and convert to uppercase. List values are specified as a single
 string containing elements separated by spaces.
 For example:
 
+    CFDDNS_CONFIG=/path/to/config.yaml
     CFDDNS_IFACE=eth0
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_TTL=180
+    CFDDNS_RUN_EVERY=10m
     CFDDNS_SYSTEMD=false
     CFDDNS_MULTIHOST=true
     CFDDNS_HOST_ID=homelab-node-1
@@ -121,11 +126,17 @@ Flags:
                                    For correct operation, this mode must be enabled on all participating hosts and
                                    different host-ids must be specified for each host (see --host-id option).
       --priority-subnets strings   IPv6 subnets to prefer over others.
-                                   If multiple IPv6 addresses are found on the interface, the one from the subnet with the highest priority is used.
+                                   If multiple IPv6 addresses are found on the interface,
+                                   the one from the subnet with the highest priority is used.
+      --run-every string           Re-run the program every N duration until it's killed.
+                                   The format is described at https://pkg.go.dev/time#ParseDuration.
+                                   The minimum duration is 1m. Examples: 4h30m15s, 5m.
       --systemd                    Switch operation mode for running in systemd.
-                                   In this mode previously used ipv6 address is preserved between runs to avoid unnecessary calls to CloudFlare API.
+                                   In this mode previously used ipv6 address is preserved
+                                   between runs to avoid unnecessary calls to CloudFlare API.
       --token string               Cloudflare API token with DNS edit access rights.
-      --ttl int                    Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
+      --ttl int                    Time to live, in seconds, of the DNS record.
+                                   Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
   -v, --version                    version for cloudflare-dynamic-dns
 </pre>
 <!-- END CFDDNS_USAGE -->
