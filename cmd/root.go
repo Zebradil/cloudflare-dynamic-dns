@@ -52,13 +52,13 @@ will stop if killed or if failed.
 State file
 --------------------------------------------------------------------------------
 
-Setting --with-state-file makes the program to retain the previously used IPv6
+Setting --state-file makes the program to retain the previously used IPv6
 address between runs to avoid unnecessary calls to the Cloudflare API.
 
-The flag can be used with or without a value. The value is used as the state
-file path. When used without a value, the state file is named after the
-interface name and the domains, and is stored either in the current directory or
-in the directory specified by the STATE_DIRECTORY environment variable.
+The value is used as the state file path. When used with an empty value, the
+state file is named after the interface name and the domains, and is stored
+either in the current directory or in the directory specified by the
+STATE_DIRECTORY environment variable.
 
 The STATE_DIRECTORY environment variable is automatically set by systemd. It
 can be set manually when running the program outside of systemd.
@@ -100,7 +100,7 @@ are supported (with example values):
       - 2001:db8:1::/48
     ttl: 180
     runEvery: 10m
-    withStateFile: /tmp/cfddns-eth0.state
+    stateFile: /tmp/cfddns-eth0.state
     multihost: true
     hostId: homelab-node-1
 
@@ -121,7 +121,7 @@ For example:
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
-    CFDDNS_WITH_STATE_FILE=/tmp/cfddns-eth0.state
+    CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
     CFDDNS_MULTIHOST=true
     CFDDNS_HOST_ID=homelab-node-1
 `
@@ -191,7 +191,7 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
 
-	rootCmd.Flags().String("with-state-file", "", `Enables usage of a state file.
+	rootCmd.Flags().String("state-file", "", `Enables usage of a state file.
 In this mode, previously used ipv6 address is preserved
 between runs to avoid unnecessary calls to CloudFlare API.
 Automatically selects where to store the state file if no
@@ -252,8 +252,8 @@ func collectConfiguration() runConfig {
 		prioritySubnets  = viper.GetStringSlice("prioritySubnets")
 		runEvery         = viper.GetString("run-every")
 		sleepDuration    = time.Duration(0)
-		stateFilepath    = viper.GetString("with-state-file")
-		stateFileEnabled = viper.IsSet("with-state-file")
+		stateFilepath    = viper.GetString("state-file")
+		stateFileEnabled = viper.IsSet("state-file")
 		token            = viper.GetString("token")
 		ttl              = viper.GetInt("ttl")
 	)
@@ -345,7 +345,7 @@ func run(cfg runConfig) {
 
 	if cfg.stateFilepath != "" && addr == getOldIpv6Address(cfg.stateFilepath) {
 		log.Info("The address hasn't changed, nothing to do")
-		log.Info("To bypass this check run without the --with-state-file flag or remove the state file: ", cfg.stateFilepath)
+		log.Info("To bypass this check run without the --state-file flag or remove the state file: ", cfg.stateFilepath)
 		return
 	}
 
