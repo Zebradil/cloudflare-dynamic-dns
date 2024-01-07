@@ -75,6 +75,24 @@ are supported (with example values):
     multihost: true
     hostId: homelab-node-1
 
+=== Environment variables ===
+
+The configuration options can be specified as environment variables. To make an
+environment variable name, prefix a flag name with CFDDNS_, replace dashes with
+underscores, and convert to uppercase. List values are specified as a single
+string containing elements separated by spaces.
+For example:
+
+    CFDDNS_IFACE=eth0
+    CFDDNS_TOKEN=cloudflare-api-token
+    CFDDNS_DOMAINS='example.com *.example.com'
+    CFDDNS_LOG_LEVEL=info
+    CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
+    CFDDNS_TTL=180
+    CFDDNS_SYSTEMD=false
+    CFDDNS_MULTIHOST=true
+    CFDDNS_HOST_ID=homelab-node-1
+
 Usage:
   cloudflare-dynamic-dns [flags]
 

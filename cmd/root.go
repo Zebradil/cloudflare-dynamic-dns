@@ -79,6 +79,24 @@ are supported (with example values):
     systemd: false
     multihost: true
     hostId: homelab-node-1
+
+=== Environment variables ===
+
+The configuration options can be specified as environment variables. To make an
+environment variable name, prefix a flag name with CFDDNS_, replace dashes with
+underscores, and convert to uppercase. List values are specified as a single
+string containing elements separated by spaces.
+For example:
+
+    CFDDNS_IFACE=eth0
+    CFDDNS_TOKEN=cloudflare-api-token
+    CFDDNS_DOMAINS='example.com *.example.com'
+    CFDDNS_LOG_LEVEL=info
+    CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
+    CFDDNS_TTL=180
+    CFDDNS_SYSTEMD=false
+    CFDDNS_MULTIHOST=true
+    CFDDNS_HOST_ID=homelab-node-1
 `
 
 var cfgFile string
@@ -103,7 +121,9 @@ func initConfig() {
 		viper.SetConfigName(".cloudflare-dynamic-dns")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvPrefix("CFDDNS")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
