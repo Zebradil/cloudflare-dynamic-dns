@@ -1,3 +1,10 @@
+# [2.8.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.7.0...2.8.0) (2024-01-07)
+
+
+### Features
+
+* accept environment variables for configuration ([249d9d8](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/249d9d88aa105c3e6fc15b801c212be39c883985))
+
 # [2.7.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.6.1...2.7.0) (2024-01-07)
 
 
