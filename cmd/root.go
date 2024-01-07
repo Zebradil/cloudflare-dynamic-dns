@@ -297,7 +297,7 @@ func collectConfiguration() runConfig {
 		ttl:             ttl,
 	}
 
-	printConfig(cfg)
+	logConfig(cfg)
 
 	if len(domains) == 0 {
 		log.Fatal("No domains specified")
@@ -310,9 +310,18 @@ func collectConfiguration() runConfig {
 	return cfg
 }
 
-func printConfig(cfg runConfig) {
-	cfg.token = fmt.Sprintf("[%d characters]", len(cfg.token))
-	log.WithField("config", cfg).Info("Configuration")
+func logConfig(cfg runConfig) {
+	log.WithFields(log.Fields{
+		"domains":         cfg.domains,
+		"hostId":          cfg.hostId,
+		"iface":           cfg.iface,
+		"multihost":       cfg.multihost,
+		"prioritySubnets": cfg.prioritySubnets,
+		"runEvery":        cfg.runEvery,
+		"stateFilepath":   cfg.stateFilepath,
+		"token":           fmt.Sprintf("[%d characters]", len(cfg.token)),
+		"ttl":             cfg.ttl,
+	}).Debug("Configuration")
 }
 
 func run(cfg runConfig) {
