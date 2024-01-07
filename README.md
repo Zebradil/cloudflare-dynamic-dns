@@ -2,7 +2,14 @@
 
 A small tool for updating the IPv6 address at Cloudflare DNS with the currently detected address of the specified network interface.
 
-It is provided with systemd service and timer files for automation.
+## Features
+
+- Intellegent IPv6 address selection
+- Support for multiple domains
+- Systemd service and timer files for automation
+- Can be run as a Docker containern
+- Configuration via command line arguments, config file or environment variables
+- Support for multiple hosts in the same domain (experimental)
 
 ```text
 Selects an IPv6 address from the specified network interface and updates AAAA
