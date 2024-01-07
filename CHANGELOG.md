@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/3.0.0...3.1.0) (2024-01-07)
+
+
+### Features
+
+* rename with-state-file flag to state-file, fix systemd unit ([27803f9](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/27803f90cfb184580b28b6805c0995139f51146c))
+
 # [3.0.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.8.1...3.0.0) (2024-01-07)
 
 
