@@ -1,3 +1,26 @@
+# [3.0.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.8.1...3.0.0) (2024-01-07)
+
+
+### Bug Fixes
+
+* add check for STATE_DIRECTORY when running in systemd mode ([25ef6de](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/25ef6de6c4e59a1e1793382e10945cdca1239626))
+* copy only binary in the container image ([d82e524](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/d82e524fe91adb7161bec60b702a3ea7857e4a62))
+* do not shadow variable via assignment ([19c7d5a](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/19c7d5a577d518f47e66375eed5b89ed56ca9c45))
+* switching between single- and multi-host modes ([70e39af](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/70e39af2290466ec3747a84a85bb3a46bb0bdf21))
+* validate token and iface values ([3ab4e44](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/3ab4e4488da1a479f71fc9d1baf3052201bf75b5))
+
+
+### Features
+
+* add --run-every to run periodically ([ac2af3c](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/ac2af3c7f558b267ef06bc0d1648f6996fa87f60))
+* include "managed by" in the DNS record comment ([d829f28](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/d829f282770d9cd1b8fc1ff9cb39b79230f359f3))
+* replace --systemd flag with --with-state-file ([adbc8df](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/adbc8df70ee216d89fcfa035a7d8b20a8cb979a6))
+
+
+### BREAKING CHANGES
+
+* --systemd flag is replaced with --with-state-file.
+
 ## [2.8.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.8.0...2.8.1) (2024-01-07)
 
 
