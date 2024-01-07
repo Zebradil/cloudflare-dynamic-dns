@@ -20,13 +20,15 @@ const longDescription = `
 Selects an IPv6 address from the specified network interface and updates AAAA
 records at Cloudflare for the configured domains.
 
-=== Required configuration options ===
+Required configuration options
+--------------------------------------------------------------------------------
 
 --iface:   network interface name to look up for an IPv6 address
 --domains: one or more domain names to assign the IPv6 address to
 --token:   Cloudflare API token with edit access rights to the DNS zone
 
-=== IPv6 address selection ===
+IPv6 address selection
+--------------------------------------------------------------------------------
 
 When multiple IPv6 addresses are found on the interface, the following rules are
 used to select the one to use:
@@ -38,16 +40,18 @@ used to select the one to use:
        highest priority are selected. The priority is determined by the order of
        subnets specified on the command line or in the config file.
 
-=== Daemon/systemd mode ===
+Daemon/systemd mode
+--------------------------------------------------------------------------------
 
 The program can be run in systemd mode, in which case the previously used IPv6
 address is preserved between runs to avoid unnecessary calls to the Cloudflare
 API. This mode is enabled by passing --systemd flag. The state file is stored
 in the directory specified by the STATE_DIRECTORY environment variable.
 
-=== Multihost mode (EXPERIMENTAL) ===
+Multihost mode (EXPERIMENTAL)
+--------------------------------------------------------------------------------
 
-In this mode it is possible to assign multiple IPv6 addresses to a single or
+In this mode, it is possible to assign multiple IPv6 addresses to a single or
 multiple domains. For correct operation, this mode must be enabled on all hosts
 participating in the same domain and different host-ids must be specified for
 each host (see --host-id option). This mode is enabled by passing --multihost
@@ -59,7 +63,8 @@ Any other records will be ignored. This allows multiple hosts to share the same
 domain without interfering with each other. The host-id is stored in the
 Cloudflare DNS comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
 
-=== Persistent configuration ===
+Persistent configuration
+--------------------------------------------------------------------------------
 
 The program can be configured using a config file. The default location is
 $HOME/.cloudflare-dynamic-dns.yaml. The config file location can be overridden
@@ -81,7 +86,8 @@ are supported (with example values):
     multihost: true
     hostId: homelab-node-1
 
-=== Environment variables ===
+Environment variables
+--------------------------------------------------------------------------------
 
 The configuration options can be specified as environment variables. To make an
 environment variable name, prefix a flag name with CFDDNS_, replace dashes with

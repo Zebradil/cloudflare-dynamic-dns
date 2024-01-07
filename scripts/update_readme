@@ -47,10 +47,12 @@ rdm:inject_usage() {
 
     sed -n "1,/$begin_marker/p" "$file" >"$tmp_file"
 
+    echo '<pre>' >>"$tmp_file"
     (
         cd "$ROOT"
         go run main.go --help >>"$tmp_file"
     )
+    echo '</pre>' >>"$tmp_file"
 
     sed -n "/$end_marker/,\$p" "$file" >>"$tmp_file"
     cp "$tmp_file" "$file"

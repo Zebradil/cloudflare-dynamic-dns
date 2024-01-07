@@ -51,7 +51,7 @@ tasks:
     cmds:
       - ytt -f .goreleaser.ytt.yml > .goreleaser.yml
 
-  docs:update_readme:
+  docs:update-readme:
     desc: Update the README.md file
     cmds:
       - scripts/update_readme README.md
