@@ -1,3 +1,10 @@
+## [2.8.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.8.0...2.8.1) (2024-01-07)
+
+
+### Bug Fixes
+
+* set path to config file via envvar ([4623ac7](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/4623ac74a303f84c2e133d84ec25d26355f77e81))
+
 # [2.8.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/2.7.0...2.8.0) (2024-01-07)
 
 
