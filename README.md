@@ -52,13 +52,13 @@ will stop if killed or if failed.
 State file
 --------------------------------------------------------------------------------
 
-Setting --with-state-file makes the program to retain the previously used IPv6
+Setting --state-file makes the program to retain the previously used IPv6
 address between runs to avoid unnecessary calls to the Cloudflare API.
 
-The flag can be used with or without a value. The value is used as the state
-file path. When used without a value, the state file is named after the
-interface name and the domains, and is stored either in the current directory or
-in the directory specified by the STATE_DIRECTORY environment variable.
+The value is used as the state file path. When used with an empty value, the
+state file is named after the interface name and the domains, and is stored
+either in the current directory or in the directory specified by the
+STATE_DIRECTORY environment variable.
 
 The STATE_DIRECTORY environment variable is automatically set by systemd. It
 can be set manually when running the program outside of systemd.
@@ -74,9 +74,11 @@ flag.
 
 In the multihost mode, the program will manage only the DNS records that have
 the same host-id as the one specified on the command line or in the config file.
-Any other records will be ignored. This allows multiple hosts to share the same
-domain without interfering with each other. The host-id is stored in the
-Cloudflare DNS comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
+If an existing record has no host-id but has the same address as the target one,
+it will be claimed by this host via setting the corresponding host-id. Any other
+records will be ignored. This allows multiple hosts to share the same domain
+without interfering with each other. The host-id is stored in the Cloudflare DNS
+comments field (see https://developers.cloudflare.com/dns/manage-dns-records/reference/record-attributes/).
 
 Persistent configuration
 --------------------------------------------------------------------------------
@@ -98,7 +100,7 @@ are supported (with example values):
       - 2001:db8:1::/48
     ttl: 180
     runEvery: 10m
-    withStateFile: /tmp/cfddns-eth0.state
+    stateFile: /tmp/cfddns-eth0.state
     multihost: true
     hostId: homelab-node-1
 
@@ -119,7 +121,7 @@ For example:
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
-    CFDDNS_WITH_STATE_FILE=/tmp/cfddns-eth0.state
+    CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
     CFDDNS_MULTIHOST=true
     CFDDNS_HOST_ID=homelab-node-1
 
@@ -131,6 +133,8 @@ Flags:
       --domains strings            Domain names to assign the IPv6 address to.
   -h, --help                       help for cloudflare-dynamic-dns
       --host-id string             Unique host identifier. Must be specified in multihost mode.
+                                   Must be a valid DNS label. It is stored in the Cloudflare DNS comments field in
+                                   the format: "host-id (managed by cloudflare-dynamic-dns)"
       --iface string               Network interface to look up for a IPv6 address.
       --log-level string           Sets logging level: trace, debug, info, warning, error, fatal, panic. (default "info")
       --multihost                  Enable multihost mode.
@@ -143,15 +147,15 @@ Flags:
       --run-every string           Re-run the program every N duration until it's killed.
                                    The format is described at https://pkg.go.dev/time#ParseDuration.
                                    The minimum duration is 1m. Examples: 4h30m15s, 5m.
-      --token string               Cloudflare API token with DNS edit access rights.
-      --ttl int                    Time to live, in seconds, of the DNS record.
-                                   Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
-  -v, --version                    version for cloudflare-dynamic-dns
-      --with-state-file string     Enables usage of a state file.
+      --state-file string          Enables usage of a state file.
                                    In this mode, previously used ipv6 address is preserved
                                    between runs to avoid unnecessary calls to CloudFlare API.
                                    Automatically selects where to store the state file if no
                                    value is specified. See the State file section in usage.
+      --token string               Cloudflare API token with DNS edit access rights.
+      --ttl int                    Time to live, in seconds, of the DNS record.
+                                   Must be between 60 and 86400, or 1 for 'automatic'. (default 1)
+  -v, --version                    version for cloudflare-dynamic-dns
 </pre>
 <!-- END CFDDNS_USAGE -->
 
