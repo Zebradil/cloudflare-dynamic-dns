@@ -94,15 +94,15 @@ are supported (with example values):
       - example.com
       - "*.example.com"
     # --- optional fields ---
-    logLevel: info
-    prioritySubnets:
+    log-level: info
+    priority-subnets:
       - 2001:db8::/32
       - 2001:db8:1::/48
     ttl: 180
-    runEvery: 10m
-    stateFile: /tmp/cfddns-eth0.state
+    run-every: 10m
+    state-file: /tmp/cfddns-eth0.state
     multihost: true
-    hostId: homelab-node-1
+    host-id: homelab-node-1
 
 Environment variables
 --------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ func collectConfiguration() runConfig {
 		hostId           = viper.GetString("host-id")
 		iface            = viper.GetString("iface")
 		multihost        = viper.GetBool("multihost")
-		prioritySubnets  = viper.GetStringSlice("prioritySubnets")
+		prioritySubnets  = viper.GetStringSlice("priority-subnets")
 		runEvery         = viper.GetString("run-every")
 		sleepDuration    = time.Duration(0)
 		stateFilepath    = viper.GetString("state-file")
