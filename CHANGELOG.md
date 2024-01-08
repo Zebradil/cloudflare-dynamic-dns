@@ -1,3 +1,16 @@
+# [4.0.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/3.1.0...4.0.0) (2024-01-08)
+
+
+### Bug Fixes
+
+* consistently use kebab-case for config keys ([429d6a9](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/429d6a972a95d9f27e527a1c920e14dfb63e0e6c))
+
+
+### BREAKING CHANGES
+
+* the `prioritySubnets` config key has been renamed to
+`priority-subnets` to be consistent with the other config keys.
+
 # [3.1.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/3.0.0...3.1.0) (2024-01-07)
 
 
