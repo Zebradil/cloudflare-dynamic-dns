@@ -93,16 +93,21 @@ are supported (with example values):
     domains:
       - example.com
       - "*.example.com"
-    # --- optional fields ---
+    # === optional fields
+    # --- UI
     log-level: info
+    # --- logic
     priority-subnets:
       - 2001:db8::/32
       - 2001:db8:1::/48
-    ttl: 180
-    run-every: 10m
-    state-file: /tmp/cfddns-eth0.state
     multihost: true
     host-id: homelab-node-1
+    # --- DNS record details
+    proxy: enabled
+    ttl: 180
+    # --- daemon mode
+    run-every: 10m
+    state-file: /tmp/cfddns-eth0.state
 
 Environment variables
 --------------------------------------------------------------------------------
@@ -119,11 +124,12 @@ For example:
     CFDDNS_DOMAINS='example.com *.example.com'
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
+    CFDDNS_MULTIHOST=true
+    CFDDNS_HOST_ID=homelab-node-1
+    CFDDNS_PROXY=enabled
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
     CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
-    CFDDNS_MULTIHOST=true
-    CFDDNS_HOST_ID=homelab-node-1
 
 Usage:
   cloudflare-dynamic-dns [flags]
@@ -144,6 +150,9 @@ Flags:
       --priority-subnets strings   IPv6 subnets to prefer over others.
                                    If multiple IPv6 addresses are found on the interface,
                                    the one from the subnet with the highest priority is used.
+      --proxy string               Override proxy setting for created or updated DNS records.
+                                   If set to "auto", preserves the current state of an updated record.
+                                   Allowed values: "enabled", "disabled", "auto". (default "auto")
       --run-every string           Re-run the program every N duration until it's killed.
                                    The format is described at https://pkg.go.dev/time#ParseDuration.
                                    The minimum duration is 1m. Examples: 4h30m15s, 5m.
