@@ -1,3 +1,10 @@
+## [4.0.7](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.0.6...4.0.7) (2024-03-24)
+
+
+### Bug Fixes
+
+* update records with empty records when multihost is disabled ([4ea5e38](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/4ea5e38195b338043ce290038cd1247566a73502))
+
 ## [4.0.6](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.0.5...4.0.6) (2024-03-22)
 
 
