@@ -411,16 +411,24 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 		return recHost == cfgHost
 	}
 
+	// Update the current record if it is either:
+	//   1. has the same address as the desired record (ttl or comment may have changed),
+	//   2. has the same comment as the desired record and multihost is enabled (address and ttl may have changed),
+	//   3. has empty comment and multihost is disabled (address and ttl may have changed).
+	// NOTE: despite API returning empty Comment as `null`, cloudflare-go represents it as an empty string.
+	//       This can break in the future.
+	shouldUpdateFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
+		return record.Content == addr ||
+			cfg.multihost && sameHostFn(record, cfg) ||
+			!cfg.multihost && record.Comment == ""
+	}
+
 	// Look through all existing records.
 	// Update the matching record if found, delete the rest.
 	// If no matching record is found, create a new one.
 	updated := false
 	for _, record := range existingDNSRecords {
-		// If a record has the same address as the desired record, update it (ttl
-		// or comment may have changed).
-		// If a record has the same comment as the desired record and multihost is
-		// enabled, update it (address or ttl may have changed).
-		if !updated && (record.Content == addr || cfg.multihost && sameHostFn(record, cfg)) {
+		if !updated && shouldUpdateFn(record, cfg) {
 			updateDNSRecord(api, zoneID, record, desiredDNSRecord)
 			updated = true
 			continue
