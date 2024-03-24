@@ -98,6 +98,7 @@ are supported (with example values):
     priority-subnets:
       - 2001:db8::/32
       - 2001:db8:1::/48
+    proxy: enabled
     ttl: 180
     run-every: 10m
     state-file: /tmp/cfddns-eth0.state
@@ -119,6 +120,7 @@ For example:
     CFDDNS_DOMAINS='example.com *.example.com'
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
+    CFDDNS_PROXY=enabled
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
     CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
@@ -132,6 +134,7 @@ type runConfig struct {
 	iface           string
 	multihost       bool
 	prioritySubnets []string
+	proxy           string
 	runEvery        time.Duration
 	stateFilepath   string
 	token           string
@@ -206,6 +209,9 @@ different host-ids must be specified for each host (see --host-id option).`)
 	rootCmd.Flags().String("host-id", "", `Unique host identifier. Must be specified in multihost mode.
 Must be a valid DNS label. It is stored in the Cloudflare DNS comments field in
 the format: "host-id (managed by cloudflare-dynamic-dns)"`)
+	rootCmd.Flags().String("proxy", "auto", `Override proxy setting for created or updated DNS records.
+If set to "auto", preserves the current state of an updated record.
+Allowed values: "enabled", "disabled", "auto".`)
 	rootCmd.Flags().Int("ttl", 1, `Time to live, in seconds, of the DNS record.
 Must be between 60 and 86400, or 1 for 'automatic'.`)
 	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
@@ -250,6 +256,7 @@ func collectConfiguration() runConfig {
 		iface            = viper.GetString("iface")
 		multihost        = viper.GetBool("multihost")
 		prioritySubnets  = viper.GetStringSlice("priority-subnets")
+		proxy            = viper.GetString("proxy")
 		runEvery         = viper.GetString("run-every")
 		sleepDuration    = time.Duration(0)
 		stateFilepath    = viper.GetString("state-file")
@@ -257,6 +264,11 @@ func collectConfiguration() runConfig {
 		token            = viper.GetString("token")
 		ttl              = viper.GetInt("ttl")
 	)
+
+	if proxy != "auto" && proxy != "enabled" && proxy != "disabled" {
+		log.WithField("proxy", proxy).Error("Invalid proxy setting, must be one of: auto, enabled, disabled. Using auto.")
+		proxy = "auto"
+	}
 
 	if ttl < 60 || ttl > 86400 {
 		// NOTE: 1 is a special value which means "use the default TTL"
@@ -299,6 +311,7 @@ func collectConfiguration() runConfig {
 		iface:           iface,
 		multihost:       multihost,
 		prioritySubnets: prioritySubnets,
+		proxy:           proxy,
 		runEvery:        sleepDuration,
 		stateFilepath:   stateFilepath,
 		token:           token,
@@ -333,6 +346,7 @@ func logConfig(cfg runConfig) {
 		"iface":           cfg.iface,
 		"multihost":       cfg.multihost,
 		"prioritySubnets": cfg.prioritySubnets,
+		"proxy":           cfg.proxy,
 		"runEvery":        cfg.runEvery,
 		"stateFilepath":   cfg.stateFilepath,
 		"token":           fmt.Sprintf("[%d characters]", len(cfg.token)),
@@ -377,6 +391,10 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 		desiredDNSRecord.Comment = cfg.hostId
 	}
 
+	if cfg.proxy != "auto" {
+		desiredDNSRecord.Proxied = Ptr(cfg.proxy == "enabled")
+	}
+
 	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
 	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
 	if err != nil {
@@ -412,9 +430,9 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	}
 
 	// Update the current record if it is either:
-	//   1. has the same address as the desired record (ttl or comment may have changed),
-	//   2. has the same comment as the desired record and multihost is enabled (address and ttl may have changed),
-	//   3. has empty comment and multihost is disabled (address and ttl may have changed).
+	//   1. has the same address as the desired record (proxied, ttl, or comment may have changed),
+	//   2. has the same comment as the desired record and multihost is enabled (address and possibly proxied or ttl have changed),
+	//   3. has empty comment and multihost is disabled (address and possibly proxied or ttl have changed).
 	// NOTE: despite API returning empty Comment as `null`, cloudflare-go represents it as an empty string.
 	//       This can break in the future.
 	shouldUpdateFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
@@ -463,6 +481,7 @@ func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord clo
 		Name:    desiredDNSRecord.Name,
 		Content: desiredDNSRecord.Content,
 		Comment: desiredDNSRecord.Comment,
+		Proxied: desiredDNSRecord.Proxied,
 		TTL:     desiredDNSRecord.TTL,
 	})
 	if err != nil {
@@ -472,7 +491,10 @@ func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord clo
 
 func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DNSRecord, newRecord cloudflare.DNSRecord) {
 	ctx := context.Background()
+	proxiedMatches := newRecord.Proxied == nil ||
+		(oldRecord.Proxied != nil && *oldRecord.Proxied == *newRecord.Proxied)
 	if oldRecord.Content == newRecord.Content &&
+		proxiedMatches &&
 		oldRecord.TTL == newRecord.TTL &&
 		oldRecord.Comment == newRecord.Comment {
 		log.WithField("record", oldRecord).Info("DNS record is up to date")
@@ -490,6 +512,7 @@ func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DN
 		Content: newRecord.Content,
 		Comment: &newRecord.Comment,
 		TTL:     newRecord.TTL,
+		Proxied: newRecord.Proxied,
 	})
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
@@ -638,4 +661,11 @@ func ipv6IsEUI64(ip net.IP) bool {
 	// found in the middle of the Interface ID, then the address is generated
 	// using the EUI-64 format.
 	return ip[8]&0b00000010 == 0b00000010 && ip[11] == 0xff && ip[12] == 0xfe
+}
+
+// Ptr returns a pointer to the value passed as an argument.
+// This is a workaround for the lack of support for pointer literals in Go.
+// See https://stackoverflow.com/a/30716481/2227895 for more information.
+func Ptr[T any](v T) *T {
+	return &v
 }
