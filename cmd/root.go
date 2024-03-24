@@ -93,17 +93,21 @@ are supported (with example values):
     domains:
       - example.com
       - "*.example.com"
-    # --- optional fields ---
+    # === optional fields
+    # --- UI
     log-level: info
+    # --- logic
     priority-subnets:
       - 2001:db8::/32
       - 2001:db8:1::/48
-    proxy: enabled
-    ttl: 180
-    run-every: 10m
-    state-file: /tmp/cfddns-eth0.state
     multihost: true
     host-id: homelab-node-1
+    # --- DNS record details
+    proxy: enabled
+    ttl: 180
+    # --- daemon mode
+    run-every: 10m
+    state-file: /tmp/cfddns-eth0.state
 
 Environment variables
 --------------------------------------------------------------------------------
@@ -120,12 +124,12 @@ For example:
     CFDDNS_DOMAINS='example.com *.example.com'
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
+    CFDDNS_MULTIHOST=true
+    CFDDNS_HOST_ID=homelab-node-1
     CFDDNS_PROXY=enabled
     CFDDNS_TTL=180
     CFDDNS_RUN_EVERY=10m
     CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
-    CFDDNS_MULTIHOST=true
-    CFDDNS_HOST_ID=homelab-node-1
 `
 
 type runConfig struct {
@@ -259,8 +263,8 @@ func collectConfiguration() runConfig {
 		proxy            = viper.GetString("proxy")
 		runEvery         = viper.GetString("run-every")
 		sleepDuration    = time.Duration(0)
-		stateFilepath    = viper.GetString("state-file")
 		stateFileEnabled = viper.IsSet("state-file")
+		stateFilepath    = viper.GetString("state-file")
 		token            = viper.GetString("token")
 		ttl              = viper.GetInt("ttl")
 	)
@@ -477,12 +481,12 @@ func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord clo
 	ctx := context.Background()
 	log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
 	_, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
-		Type:    desiredDNSRecord.Type,
-		Name:    desiredDNSRecord.Name,
-		Content: desiredDNSRecord.Content,
 		Comment: desiredDNSRecord.Comment,
+		Content: desiredDNSRecord.Content,
+		Name:    desiredDNSRecord.Name,
 		Proxied: desiredDNSRecord.Proxied,
 		TTL:     desiredDNSRecord.TTL,
+		Type:    desiredDNSRecord.Type,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't create DNS record")
@@ -506,13 +510,13 @@ func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DN
 		"old": oldRecord,
 	}).Info("Updating existing DNS record")
 	_, err := api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
-		ID:      oldRecord.ID,
-		Type:    newRecord.Type,
-		Name:    newRecord.Name,
-		Content: newRecord.Content,
 		Comment: &newRecord.Comment,
-		TTL:     newRecord.TTL,
+		Content: newRecord.Content,
+		ID:      oldRecord.ID,
+		Name:    newRecord.Name,
 		Proxied: newRecord.Proxied,
+		TTL:     newRecord.TTL,
+		Type:    newRecord.Type,
 	})
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
