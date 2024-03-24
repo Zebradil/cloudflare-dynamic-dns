@@ -372,11 +372,23 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 		log.WithError(err).Fatal("Couldn't get ZoneID")
 	}
 
+	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: cfg.ttl}
+	if cfg.multihost {
+		desiredDNSRecord.Comment = cfg.hostId
+	}
+
 	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
 	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
 	if err != nil {
 		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
 	}
+
+	// If there are no existing records, create a new one and exit.
+	if len(existingDNSRecords) == 0 {
+		createNewDNSRecord(api, zoneID, desiredDNSRecord)
+		return
+	}
+
 	// If there is already a record with the same address, we want to process it
 	// first. Cloudflare API doesn't allow creating multiple records with the
 	// same address, which may happen in the multihost mode.
@@ -391,17 +403,6 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 			"proxied": *record.Proxied,
 			"ttl":     record.TTL,
 		}).Debug("Found DNS record")
-	}
-
-	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: cfg.ttl}
-	if cfg.multihost {
-		desiredDNSRecord.Comment = cfg.hostId
-	}
-
-	// If there are no existing records, create a new one.
-	if len(existingDNSRecords) == 0 {
-		createNewDNSRecord(api, zoneID, desiredDNSRecord)
-		return
 	}
 
 	sameHostFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
