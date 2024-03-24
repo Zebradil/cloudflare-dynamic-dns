@@ -1,3 +1,10 @@
+# [4.1.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.0.7...4.1.0) (2024-03-24)
+
+
+### Features
+
+* add option to configure if a DNS record should be proxied ([b5836e2](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/b5836e2d7b78803850de31d5faab231de4542fe3)), closes [#101](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/101)
+
 ## [4.0.7](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.0.6...4.0.7) (2024-03-24)
 
 
