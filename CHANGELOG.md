@@ -1,3 +1,10 @@
+# [4.2.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.1.1...4.2.0) (2024-03-30)
+
+
+### Features
+
+* support for ipv4 stack ([#106](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/106)) ([a70d619](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/a70d619aaced65e5db12fdef81c97ac81d8dd6c6))
+
 ## [4.1.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.1.0...4.1.1) (2024-03-27)
 
 
