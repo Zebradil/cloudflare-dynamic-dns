@@ -109,6 +109,13 @@ func (s ipv6Stack) sortIPs(ips []net.IP) []net.IP {
 }
 
 func (s ipv4Stack) sortIPs(ips []net.IP) []net.IP {
+	// Sort addresses placing GUAs first, then Shared Address Space addresses,
+	// then private addresses, then loopback addresses.
+	sort.Slice(ips, func(i, j int) bool {
+		return ips[i].IsGlobalUnicast() && !ips[j].IsGlobalUnicast() ||
+			ipv4IsSAS(ips[i]) && !ipv4IsSAS(ips[j]) ||
+			ips[i].IsPrivate() && !ips[j].IsPrivate()
+	})
 	return ips
 }
 
@@ -161,9 +168,15 @@ func (s ipv6Stack) logIP(ip net.IP) {
 }
 
 func (s ipv4Stack) logIP(ip net.IP) {
-	// if ipv4IsPrivate(ip) {
-	//     log.Warn("The selected address is a private IP, it may not be routable")
-	// }
+	if ipv4IsSAS(ip) {
+		log.Warn("The selected address is in the Shared Address Space range")
+	}
+	if ip.IsPrivate() {
+		log.Warn("The selected address is private, it may not be routable")
+	}
+	if ip.IsLoopback() {
+		log.Warn("The selected address is a loopback address")
+	}
 }
 
 func (mgr ipManager) getOldIp() string {
@@ -195,4 +208,10 @@ func ipv6IsEUI64(ip net.IP) bool {
 	// found in the middle of the Interface ID, then the address is generated
 	// using the EUI-64 format.
 	return ip[8]&0b00000010 == 0b00000010 && ip[11] == 0xff && ip[12] == 0xfe
+}
+
+func ipv4IsSAS(ip net.IP) bool {
+	// The Shared Address Space address range is 100.64.0.0/10.
+	// See RFC 6598.
+	return ip[0] == 100 && ip[1] >= 64 && ip[1] < 128
 }
