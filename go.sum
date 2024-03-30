@@ -1,5 +1,3 @@
-github.com/cloudflare/cloudflare-go v0.91.0 h1:L7IR+86qrZuEMSjGFg4cwRwtHqC8uCPmMUkP7BD4CPw=
-github.com/cloudflare/cloudflare-go v0.91.0/go.mod h1:nUqvBUUDRxNzsDSQjbqUNWHEIYAoUlgRmcAzMKlFdKs=
 github.com/cloudflare/cloudflare-go v0.92.0 h1:ltJvGvqZ4G6Fm2hHOYZ5RWpJQcrM0oDrsjjZydZhFJQ=
 github.com/cloudflare/cloudflare-go v0.92.0/go.mod h1:nUqvBUUDRxNzsDSQjbqUNWHEIYAoUlgRmcAzMKlFdKs=
 github.com/cpuguy83/go-md2man/v2 v2.0.3/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
