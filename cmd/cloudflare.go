@@ -11,15 +11,7 @@ import (
 
 func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfig) {
 	ctx := context.Background()
-
-	recordType := ""
-	if cfg.stack == ipv4 {
-		recordType = "A"
-	} else if cfg.stack == ipv6 {
-		recordType = "AAAA"
-	} else {
-		log.WithField("stack", cfg.stack).Fatal("Invalid IP mode")
-	}
+	recordType := getRecordType(cfg.stack)
 
 	zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
 	if err != nil {
@@ -112,6 +104,17 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	if !updated {
 		createNewDNSRecord(api, zoneID, desiredDNSRecord)
 	}
+}
+
+func getRecordType(stack stack) string {
+	if stack == ipv4 {
+		return "A"
+	}
+	if stack == ipv6 {
+		return "AAAA"
+	}
+	log.WithField("stack", stack).Fatal("Invalid IP mode")
+	return ""
 }
 
 func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord cloudflare.DNSRecord) {
