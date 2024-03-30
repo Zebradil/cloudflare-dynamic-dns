@@ -15,14 +15,14 @@ import (
 )
 
 const longDescription = `
-Selects an IPv6 address from the specified network interface and updates AAAA
-records at Cloudflare for the configured domains.
+Selects an address from the specified network interface and updates A or AAAA
+records at Cloudflare for the configured domains. Supports both IPv4 and IPv6.
 
 Required configuration options
 --------------------------------------------------------------------------------
 
---iface:   network interface name to look up for an IPv6 address
---domains: one or more domain names to assign the IPv6 address to
+--iface:   network interface name to look up for an address
+--domains: one or more domain names to assign the address to
 --token:   Cloudflare API token with edit access rights to the DNS zone
 
 IPv6 address selection
@@ -38,6 +38,25 @@ used to select the one to use:
        highest priority are selected. The priority is determined by the order of
        subnets specified on the command line or in the config file.
 
+IPv4 address selection
+--------------------------------------------------------------------------------
+
+When multiple IPv4 addresses are found on the interface, the following rules are
+used to select the one to use:
+    1. All IPv4 addresses are considered.
+    2. Public addresses are preferred over Shared Address Space (RFC 6598)
+       addresses.
+    3. Shared Address Space addresses are preferred over private addresses.
+    4. Private addresses are preferred over loopback addresses.
+    5. If priority subnets are specified, addresses from the subnet with the
+       highest priority are selected. The priority is determined by the order of
+       subnets specified on the command line or in the config file.
+
+Non-public addresses are logged as warnings but are still used. They can be
+useful in private networks or when using a VPN.
+
+NOTE: Cloudflare doesn't allow proxying of records with non-public addresses.
+
 Daemon mode
 --------------------------------------------------------------------------------
 
@@ -49,8 +68,8 @@ will stop if killed or if failed.
 State file
 --------------------------------------------------------------------------------
 
-Setting --state-file makes the program to retain the previously used IPv6
-address between runs to avoid unnecessary calls to the Cloudflare API.
+Setting --state-file makes the program to retain the previously used address
+between runs to avoid unnecessary calls to the Cloudflare API.
 
 The value is used as the state file path. When used with an empty value, the
 state file is named after the interface name and the domains, and is stored
@@ -63,7 +82,7 @@ can be set manually when running the program outside of systemd.
 Multihost mode (EXPERIMENTAL)
 --------------------------------------------------------------------------------
 
-In this mode, it is possible to assign multiple IPv6 addresses to a single or
+In this mode, it is possible to assign multiple addresses to a single or
 multiple domains. For correct operation, this mode must be enabled on all hosts
 participating in the same domain and different host-ids must be specified for
 each host (see --host-id option). This mode is enabled by passing --multihost
@@ -121,7 +140,7 @@ For example:
     CFDDNS_IFACE=eth0
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
-    CFDDNS_STACK=false
+    CFDDNS_STACK=ipv6
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_MULTIHOST=true
@@ -187,7 +206,7 @@ func initConfig() {
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "cloudflare-dynamic-dns",
-		Short:   "Updates AAAA records at Cloudflare according to the current IPv6 address",
+		Short:   "Updates A or AAAA records at Cloudflare according to the current address",
 		Long:    longDescription,
 		Args:    cobra.NoArgs,
 		Version: fmt.Sprintf("%s, commit %s, built at %s", version, commit, date),
@@ -204,37 +223,73 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 		Run: rootCmdRun,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
+	rootCmd.
+		PersistentFlags().
+		StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cloudflare-dynamic-dns.yaml)")
 
-	rootCmd.Flags().String("state-file", "", `Enables usage of a state file.
-In this mode, previously used ipv6 address is preserved
-between runs to avoid unnecessary calls to CloudFlare API.
-Automatically selects where to store the state file if no
-value is specified. See the State file section in usage.`)
-	rootCmd.Flags().String("run-every", "", `Re-run the program every N duration until it's killed.
-The format is described at https://pkg.go.dev/time#ParseDuration.
-The minimum duration is 1m. Examples: 4h30m15s, 5m.`)
-	rootCmd.Flags().Bool("multihost", false, `Enable multihost mode.
-In this mode it is possible to assign multiple IPv6 addresses to a single domain.
-For correct operation, this mode must be enabled on all participating hosts and
-different host-ids must be specified for each host (see --host-id option).`)
-	rootCmd.Flags().String("host-id", "", `Unique host identifier. Must be specified in multihost mode.
+	rootCmd.
+		Flags().
+		StringSlice("domains", []string{}, "Domain names to assign the address to.")
+
+	rootCmd.
+		Flags().
+		String("host-id", "", `Unique host identifier. Must be specified in multihost mode.
 Must be a valid DNS label. It is stored in the Cloudflare DNS comments field in
 the format: "host-id (managed by cloudflare-dynamic-dns)"`)
-	rootCmd.Flags().String("proxy", "auto", `Override proxy setting for created or updated DNS records.
+
+	rootCmd.
+		Flags().
+		String("iface", "", "Network interface to look up for an address.")
+
+	rootCmd.
+		Flags().
+		String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
+
+	rootCmd.
+		Flags().
+		Bool("multihost", false, `Enable multihost mode.
+In this mode it is possible to assign multiple addresses to a single domain.
+For correct operation, this mode must be enabled on all participating hosts and
+different host-ids must be specified for each host (see --host-id option).`)
+
+	rootCmd.
+		Flags().
+		StringSlice("priority-subnets", []string{}, `Subnets to prefer over others.
+If multiple addresses are found on the interface,
+the one from the subnet with the highest priority is used.`)
+
+	rootCmd.
+		Flags().
+		String("proxy", "auto", `Override proxy setting for created or updated DNS records.
 If set to "auto", preserves the current state of an updated record.
 Allowed values: "enabled", "disabled", "auto".`)
-	rootCmd.Flags().Int("ttl", 1, `Time to live, in seconds, of the DNS record.
-Must be between 60 and 86400, or 1 for 'automatic'.`)
-	rootCmd.Flags().StringSlice("domains", []string{}, "Domain names to assign the IPv6 address to.")
-	rootCmd.Flags().StringSlice("priority-subnets", []string{}, `IPv6 subnets to prefer over others.
-If multiple IPv6 addresses are found on the interface,
-the one from the subnet with the highest priority is used.`)
-	rootCmd.Flags().String("iface", "", "Network interface to look up for a IPv6 address.")
-	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
-	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
 
-	rootCmd.Flags().String("stack", "ipv6", "[experimental] IP mode: ipv4 or ipv6")
+	rootCmd.
+		Flags().
+		String("run-every", "", `Re-run the program every N duration until it's killed.
+The format is described at https://pkg.go.dev/time#ParseDuration.
+The minimum duration is 1m. Examples: 4h30m15s, 5m.`)
+
+	rootCmd.
+		Flags().
+		String("stack", "ipv6", "IP stack version: ipv4 or ipv6")
+
+	rootCmd.
+		Flags().
+		String("state-file", "", `Enables usage of a state file.
+In this mode, the previously used address is preserved
+between runs to avoid unnecessary calls to Cloudflare API.
+Automatically selects where to store the state file if no
+value is specified. See the State file section in usage.`)
+
+	rootCmd.
+		Flags().
+		String("token", "", "Cloudflare API token with DNS edit access rights.")
+
+	rootCmd.
+		Flags().
+		Int("ttl", 1, `Time to live, in seconds, of the DNS record.
+Must be between 60 and 86400, or 1 for 'automatic'.`)
 
 	err := viper.BindPFlags(rootCmd.Flags())
 	if err != nil {

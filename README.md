@@ -1,15 +1,17 @@
 # Dynamic DNS client for Cloudflare
 
-A small tool for updating the IPv6 address at Cloudflare DNS with the currently detected address of the specified network interface.
+A CLI tool for updating A/AAAA record at Cloudflare DNS with the currently detected address of the specified network interface.
 
 ## Features
 
-- Intellegent IPv6 address selection
-- Support for multiple domains
-- Systemd service and timer files for automation
-- Can be run as a Docker containern
+- Supports:
+  - IPv4 and IPv6
+  - Multiple domains with the same address
+  - Multiple hosts in the same domain
+- Tries to be smart about selecting the address to use
+- Includes systemd service and timer files for automation
+- Can be run in a Docker container
 - Configuration via command line arguments, config file or environment variables
-- Support for multiple hosts in the same domain (experimental)
 
 ## Usage
 
@@ -18,14 +20,14 @@ The rest of this section is the output of `cloudflare-dynamic-dns --help`.
 <!-- BEGIN CFDDNS_USAGE -->
 <pre>
 
-Selects an IPv6 address from the specified network interface and updates AAAA
-records at Cloudflare for the configured domains.
+Selects an address from the specified network interface and updates A or AAAA
+records at Cloudflare for the configured domains. Supports both IPv4 and IPv6.
 
 Required configuration options
 --------------------------------------------------------------------------------
 
---iface:   network interface name to look up for an IPv6 address
---domains: one or more domain names to assign the IPv6 address to
+--iface:   network interface name to look up for an address
+--domains: one or more domain names to assign the address to
 --token:   Cloudflare API token with edit access rights to the DNS zone
 
 IPv6 address selection
@@ -41,6 +43,25 @@ used to select the one to use:
        highest priority are selected. The priority is determined by the order of
        subnets specified on the command line or in the config file.
 
+IPv4 address selection
+--------------------------------------------------------------------------------
+
+When multiple IPv4 addresses are found on the interface, the following rules are
+used to select the one to use:
+    1. All IPv4 addresses are considered.
+    2. Public addresses are preferred over Shared Address Space (RFC 6598)
+       addresses.
+    3. Shared Address Space addresses are preferred over private addresses.
+    4. Private addresses are preferred over loopback addresses.
+    5. If priority subnets are specified, addresses from the subnet with the
+       highest priority are selected. The priority is determined by the order of
+       subnets specified on the command line or in the config file.
+
+Non-public addresses are logged as warnings but are still used. They can be
+useful in private networks or when using a VPN.
+
+NOTE: Cloudflare doesn't allow proxying of records with non-public addresses.
+
 Daemon mode
 --------------------------------------------------------------------------------
 
@@ -52,8 +73,8 @@ will stop if killed or if failed.
 State file
 --------------------------------------------------------------------------------
 
-Setting --state-file makes the program to retain the previously used IPv6
-address between runs to avoid unnecessary calls to the Cloudflare API.
+Setting --state-file makes the program to retain the previously used address
+between runs to avoid unnecessary calls to the Cloudflare API.
 
 The value is used as the state file path. When used with an empty value, the
 state file is named after the interface name and the domains, and is stored
@@ -66,7 +87,7 @@ can be set manually when running the program outside of systemd.
 Multihost mode (EXPERIMENTAL)
 --------------------------------------------------------------------------------
 
-In this mode, it is possible to assign multiple IPv6 addresses to a single or
+In this mode, it is possible to assign multiple addresses to a single or
 multiple domains. For correct operation, this mode must be enabled on all hosts
 participating in the same domain and different host-ids must be specified for
 each host (see --host-id option). This mode is enabled by passing --multihost
@@ -94,6 +115,8 @@ are supported (with example values):
       - example.com
       - "*.example.com"
     # === optional fields
+    # --- mode
+    stack: ipv6
     # --- UI
     log-level: info
     # --- logic
@@ -122,6 +145,7 @@ For example:
     CFDDNS_IFACE=eth0
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
+    CFDDNS_STACK=ipv6
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_MULTIHOST=true
@@ -136,19 +160,19 @@ Usage:
 
 Flags:
       --config string              config file (default is $HOME/.cloudflare-dynamic-dns.yaml)
-      --domains strings            Domain names to assign the IPv6 address to.
+      --domains strings            Domain names to assign the address to.
   -h, --help                       help for cloudflare-dynamic-dns
       --host-id string             Unique host identifier. Must be specified in multihost mode.
                                    Must be a valid DNS label. It is stored in the Cloudflare DNS comments field in
                                    the format: "host-id (managed by cloudflare-dynamic-dns)"
-      --iface string               Network interface to look up for a IPv6 address.
+      --iface string               Network interface to look up for an address.
       --log-level string           Sets logging level: trace, debug, info, warning, error, fatal, panic. (default "info")
       --multihost                  Enable multihost mode.
-                                   In this mode it is possible to assign multiple IPv6 addresses to a single domain.
+                                   In this mode it is possible to assign multiple addresses to a single domain.
                                    For correct operation, this mode must be enabled on all participating hosts and
                                    different host-ids must be specified for each host (see --host-id option).
-      --priority-subnets strings   IPv6 subnets to prefer over others.
-                                   If multiple IPv6 addresses are found on the interface,
+      --priority-subnets strings   Subnets to prefer over others.
+                                   If multiple addresses are found on the interface,
                                    the one from the subnet with the highest priority is used.
       --proxy string               Override proxy setting for created or updated DNS records.
                                    If set to "auto", preserves the current state of an updated record.
@@ -156,9 +180,10 @@ Flags:
       --run-every string           Re-run the program every N duration until it's killed.
                                    The format is described at https://pkg.go.dev/time#ParseDuration.
                                    The minimum duration is 1m. Examples: 4h30m15s, 5m.
+      --stack string               IP stack version: ipv4 or ipv6 (default "ipv6")
       --state-file string          Enables usage of a state file.
-                                   In this mode, previously used ipv6 address is preserved
-                                   between runs to avoid unnecessary calls to CloudFlare API.
+                                   In this mode, the previously used address is preserved
+                                   between runs to avoid unnecessary calls to Cloudflare API.
                                    Automatically selects where to store the state file if no
                                    value is specified. See the State file section in usage.
       --token string               Cloudflare API token with DNS edit access rights.
@@ -283,22 +308,24 @@ If the current IPv6 address is the same as the one in the state file, no additio
 
 Builds and releases are done with [goreleaser](https://goreleaser.com/).
 
-Use the following Taskfile tasks to build the application:
+There are several ways to build the application:
 
 ```shell
 # Build with go for the current platform
 go build -o cloudflare-dynamic-dns main.go
 
 # Build with GoReleaser for all configured platforms
-task build
+task go:build
 
 # Use Docker
 docker build -t cloudflare-dynamic-dns -f dev.Dockerfile .
 ```
 
+Check the [Taskfile.yml](./Taskfile.yml) for more details.
+
 ### GeReleaser
 
-Do not change `.goreleaser.yml` manually, do changes in `.goreleaser.ytt.yml` and run
+:warning: Do not change `.goreleaser.yml` manually, do changes in `.goreleaser.ytt.yml` and run
 `task misc:build:goreleaser-config` instead (requires [`ytt`](https://carvel.dev/ytt/) installed).
 
 ### Documentation
