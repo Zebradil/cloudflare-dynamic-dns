@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"crypto/md5"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -311,7 +311,9 @@ func collectConfiguration() runConfig {
 	}
 
 	if stateFileEnabled && stateFilepath == "" {
-		stateFilepath = fmt.Sprintf("%s_%s_%x", iface, stack, md5.Sum([]byte(strings.Join(domains, "_"))))
+		h := fnv.New64a()
+		domainHash := h.Sum([]byte(strings.Join(domains, " ")))
+		stateFilepath = fmt.Sprintf("%s_%s_%x", iface, stack, domainHash)
 		// If STATE_DIRECTORY is set, use it as the state file directory,
 		// otherwise use the current directory.
 		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
