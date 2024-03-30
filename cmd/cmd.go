@@ -379,7 +379,7 @@ func logConfig(cfg runConfig) {
 }
 
 func run(cfg runConfig) {
-	bs := newStack(cfg)
+	bs := baseIpStack{cfg}
 	ip := bs.getIP()
 
 	if cfg.stateFilepath != "" && ip == bs.getOldIp() {

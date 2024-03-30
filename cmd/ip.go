@@ -8,13 +8,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ipStack interface {
+type ipStackUtil interface {
 	filterIPs([]net.IP) []net.IP
-	getIP() string
-	getOldIp() string
-	logIP(net.IP)
-	setOldIp(string)
 	sortIPs([]net.IP) []net.IP
+	logIP(net.IP)
 }
 
 type baseIpStack struct {
@@ -29,26 +26,27 @@ type ipv6Stack struct {
 	baseIpStack
 }
 
-func newStack(cfg runConfig) ipStack {
-	switch cfg.stack {
+func (bs baseIpStack) newStack() ipStackUtil {
+	switch bs.cfg.stack {
 	case ipv4:
-		return ipv4Stack{baseIpStack{cfg}}
+		return ipv4Stack{bs}
 	case ipv6:
-		return ipv6Stack{baseIpStack{cfg}}
+		return ipv6Stack{bs}
 	default:
-		log.WithField("stack", cfg.stack).Fatal("Unknown stack")
+		log.WithField("stack", bs.cfg.stack).Fatal("Unknown stack")
 		return nil
 	}
 }
 
-func (s baseIpStack) getIP() string {
-	ips := s.getAllIPs()
+func (bs baseIpStack) getIP() string {
+	s := bs.newStack()
+	ips := bs.getAllIPs()
 	ips = s.filterIPs(ips)
 	if len(ips) == 0 {
 		log.Fatal("No suitable addresses found")
 	}
 	ips = s.sortIPs(ips)
-	ip := s.pickIP(ips)
+	ip := bs.pickIP(ips)
 	log.WithField("addresses", ips).Infof("Found %d public IPv6 addresses, selected %s", len(ips), ip)
 	s.logIP(ip)
 	return ip.String()
@@ -79,10 +77,6 @@ func (s baseIpStack) getAllIPs() []net.IP {
 	return ips
 }
 
-func (s baseIpStack) filterIPs(ips []net.IP) []net.IP {
-	return ips
-}
-
 func (s ipv6Stack) filterIPs(ips []net.IP) []net.IP {
 	// ip.IsGlobalUnicast() returns true for:
 	// GUA = Global Unicast Address
@@ -107,10 +101,6 @@ func (s ipv4Stack) filterIPs(ips []net.IP) []net.IP {
 	}
 
 	return ipv4s
-}
-
-func (s baseIpStack) sortIPs(ips []net.IP) []net.IP {
-	return ips
 }
 
 func (s ipv6Stack) sortIPs(ips []net.IP) []net.IP {
@@ -163,10 +153,6 @@ func (s baseIpStack) pickIP(ips []net.IP) net.IP {
 	}
 
 	return net.ParseIP(selectedIp)
-}
-
-func (s baseIpStack) logIP(ip net.IP) {
-	log.WithField("ip", ip).Info("Selected IP address")
 }
 
 func (s ipv6Stack) logIP(ip net.IP) {
