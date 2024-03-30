@@ -379,10 +379,10 @@ func logConfig(cfg runConfig) {
 }
 
 func run(cfg runConfig) {
-	bs := baseIpStack{cfg}
-	ip := bs.getIP()
+	ipMgr := newIpManager(cfg)
+	ip := ipMgr.getIP()
 
-	if cfg.stateFilepath != "" && ip == bs.getOldIp() {
+	if cfg.stateFilepath != "" && ip == ipMgr.getOldIp() {
 		log.Info("The address hasn't changed, nothing to do")
 		log.Info("To bypass this check run without the --state-file flag or remove the state file: ", cfg.stateFilepath)
 		return
@@ -399,7 +399,7 @@ func run(cfg runConfig) {
 	}
 
 	if cfg.stateFilepath != "" {
-		bs.setOldIp(ip)
+		ipMgr.setOldIp(ip)
 	}
 }
 

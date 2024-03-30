@@ -8,51 +8,47 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ipStackUtil interface {
+type ipStack interface {
 	filterIPs([]net.IP) []net.IP
-	sortIPs([]net.IP) []net.IP
 	logIP(net.IP)
+	sortIPs([]net.IP) []net.IP
 }
 
-type baseIpStack struct {
+type ipManager struct {
 	cfg runConfig
+	ipStack
 }
 
-type ipv4Stack struct {
-	baseIpStack
-}
+type ipv4Stack struct{}
 
-type ipv6Stack struct {
-	baseIpStack
-}
+type ipv6Stack struct{}
 
-func (bs baseIpStack) newStack() ipStackUtil {
-	switch bs.cfg.stack {
+func newIpManager(cfg runConfig) ipManager {
+	switch cfg.stack {
 	case ipv4:
-		return ipv4Stack{bs}
+		return ipManager{cfg, ipv4Stack{}}
 	case ipv6:
-		return ipv6Stack{bs}
+		return ipManager{cfg, ipv6Stack{}}
 	default:
-		log.WithField("stack", bs.cfg.stack).Fatal("Unknown stack")
-		return nil
+		log.WithField("stack", cfg.stack).Fatal("Unknown stack")
+		return ipManager{}
 	}
 }
 
-func (bs baseIpStack) getIP() string {
-	s := bs.newStack()
-	ips := bs.getAllIPs()
-	ips = s.filterIPs(ips)
+func (mgr ipManager) getIP() string {
+	ips := mgr.getAllIPs()
+	ips = mgr.ipStack.filterIPs(ips)
 	if len(ips) == 0 {
 		log.Fatal("No suitable addresses found")
 	}
-	ips = s.sortIPs(ips)
-	ip := bs.pickIP(ips)
+	ips = mgr.ipStack.sortIPs(ips)
+	ip := mgr.pickIP(ips)
 	log.WithField("addresses", ips).Infof("Found %d public IPv6 addresses, selected %s", len(ips), ip)
-	s.logIP(ip)
+	mgr.ipStack.logIP(ip)
 	return ip.String()
 }
 
-func (s baseIpStack) getAllIPs() []net.IP {
+func (s ipManager) getAllIPs() []net.IP {
 	iface := s.cfg.iface
 	netIface, err := net.InterfaceByName(iface)
 	if err != nil {
@@ -116,7 +112,7 @@ func (s ipv4Stack) sortIPs(ips []net.IP) []net.IP {
 	return ips
 }
 
-func (s baseIpStack) pickIP(ips []net.IP) net.IP {
+func (s ipManager) pickIP(ips []net.IP) net.IP {
 	netPrioritySubnets := []net.IPNet{}
 	for _, subnet := range s.cfg.prioritySubnets {
 		_, ipNet, err := net.ParseCIDR(subnet)
@@ -170,8 +166,8 @@ func (s ipv4Stack) logIP(ip net.IP) {
 	// }
 }
 
-func (bs baseIpStack) getOldIp() string {
-	ip, err := os.ReadFile(bs.cfg.stateFilepath)
+func (mgr ipManager) getOldIp() string {
+	ip, err := os.ReadFile(mgr.cfg.stateFilepath)
 	if err != nil {
 		log.WithError(err).Warn("Can't get old ipv6 address")
 		return "INVALID"
@@ -179,8 +175,8 @@ func (bs baseIpStack) getOldIp() string {
 	return string(ip)
 }
 
-func (bs baseIpStack) setOldIp(ip string) {
-	err := os.WriteFile(bs.cfg.stateFilepath, []byte(ip), 0o644)
+func (mgr ipManager) setOldIp(ip string) {
+	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
 	if err != nil {
 		log.WithError(err).Error("Can't write state file")
 	}
