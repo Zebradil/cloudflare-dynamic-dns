@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"crypto/md5"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -94,6 +91,8 @@ are supported (with example values):
       - example.com
       - "*.example.com"
     # === optional fields
+    # --- mode
+    stack: ipv6
     # --- UI
     log-level: info
     # --- logic
@@ -122,6 +121,7 @@ For example:
     CFDDNS_IFACE=eth0
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
+    CFDDNS_STACK=false
     CFDDNS_LOG_LEVEL=info
     CFDDNS_PRIORITY_SUBNETS='2001:db8::/32 2001:db8:1::/48'
     CFDDNS_MULTIHOST=true
@@ -132,6 +132,13 @@ For example:
     CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
 `
 
+type stack string
+
+const (
+	ipv4 stack = "ipv4"
+	ipv6 stack = "ipv6"
+)
+
 type runConfig struct {
 	domains         []string
 	hostId          string
@@ -140,6 +147,7 @@ type runConfig struct {
 	prioritySubnets []string
 	proxy           string
 	runEvery        time.Duration
+	stack           stack
 	stateFilepath   string
 	token           string
 	ttl             int
@@ -226,6 +234,8 @@ the one from the subnet with the highest priority is used.`)
 	rootCmd.Flags().String("log-level", "info", "Sets logging level: trace, debug, info, warning, error, fatal, panic.")
 	rootCmd.Flags().String("token", "", "Cloudflare API token with DNS edit access rights.")
 
+	rootCmd.Flags().String("stack", "ipv6", "[experimental] IP mode: ipv4 or ipv6")
+
 	err := viper.BindPFlags(rootCmd.Flags())
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't bind flags")
@@ -263,6 +273,7 @@ func collectConfiguration() runConfig {
 		proxy            = viper.GetString("proxy")
 		runEvery         = viper.GetString("run-every")
 		sleepDuration    = time.Duration(0)
+		stack            = stack(viper.GetString("stack"))
 		stateFileEnabled = viper.IsSet("state-file")
 		stateFilepath    = viper.GetString("state-file")
 		token            = viper.GetString("token")
@@ -272,6 +283,11 @@ func collectConfiguration() runConfig {
 	if proxy != "auto" && proxy != "enabled" && proxy != "disabled" {
 		log.WithField("proxy", proxy).Error("Invalid proxy setting, must be one of: auto, enabled, disabled. Using auto.")
 		proxy = "auto"
+	}
+
+	if stack != ipv6 && stack != ipv4 {
+		log.WithField("stack", stack).Error("Invalid IP mode, must be one of: ipv4, ipv6. Using ipv6.")
+		stack = ipv6
 	}
 
 	if ttl < 60 || ttl > 86400 {
@@ -295,7 +311,7 @@ func collectConfiguration() runConfig {
 	}
 
 	if stateFileEnabled && stateFilepath == "" {
-		stateFilepath = fmt.Sprintf("%s_%x", iface, md5.Sum([]byte(strings.Join(domains, "_"))))
+		stateFilepath = fmt.Sprintf("%s_%s_%x", iface, stack, md5.Sum([]byte(strings.Join(domains, "_"))))
 		// If STATE_DIRECTORY is set, use it as the state file directory,
 		// otherwise use the current directory.
 		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
@@ -317,6 +333,7 @@ func collectConfiguration() runConfig {
 		prioritySubnets: prioritySubnets,
 		proxy:           proxy,
 		runEvery:        sleepDuration,
+		stack:           stack,
 		stateFilepath:   stateFilepath,
 		token:           token,
 		ttl:             ttl,
@@ -352,6 +369,7 @@ func logConfig(cfg runConfig) {
 		"prioritySubnets": cfg.prioritySubnets,
 		"proxy":           cfg.proxy,
 		"runEvery":        cfg.runEvery,
+		"stack":           cfg.stack,
 		"stateFilepath":   cfg.stateFilepath,
 		"token":           fmt.Sprintf("[%d characters]", len(cfg.token)),
 		"ttl":             cfg.ttl,
@@ -359,9 +377,10 @@ func logConfig(cfg runConfig) {
 }
 
 func run(cfg runConfig) {
-	addr := getIpv6Address(cfg.iface, cfg.prioritySubnets)
+	bs := baseIpStack{cfg}
+	ip := bs.getIP()
 
-	if cfg.stateFilepath != "" && addr == getOldIpv6Address(cfg.stateFilepath) {
+	if cfg.stateFilepath != "" && ip == bs.getOldIp() {
 		log.Info("The address hasn't changed, nothing to do")
 		log.Info("To bypass this check run without the --state-file flag or remove the state file: ", cfg.stateFilepath)
 		return
@@ -374,270 +393,11 @@ func run(cfg runConfig) {
 
 	for _, domain := range cfg.domains {
 		log.Info("Processing domain: ", domain)
-		processDomain(api, domain, addr, cfg)
+		processDomain(api, domain, ip, cfg)
 	}
 
 	if cfg.stateFilepath != "" {
-		setOldIpv6Address(cfg.stateFilepath, addr)
-	}
-}
-
-func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfig) {
-	ctx := context.Background()
-
-	zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
-	if err != nil {
-		log.WithError(err).Fatal("Couldn't get ZoneID")
-	}
-
-	desiredDNSRecord := cloudflare.DNSRecord{Type: "AAAA", Name: domain, Content: addr, TTL: cfg.ttl}
-	if cfg.multihost {
-		desiredDNSRecord.Comment = cfg.hostId
-	}
-
-	if cfg.proxy != "auto" {
-		desiredDNSRecord.Proxied = Ptr(cfg.proxy == "enabled")
-	}
-
-	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: "AAAA", Name: domain}
-	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
-	if err != nil {
-		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
-	}
-
-	// If there are no existing records, create a new one and exit.
-	if len(existingDNSRecords) == 0 {
-		createNewDNSRecord(api, zoneID, desiredDNSRecord)
-		return
-	}
-
-	// If there is already a record with the same address, we want to process it
-	// first. Cloudflare API doesn't allow creating multiple records with the
-	// same address, which may happen in the multihost mode.
-	sort.Slice(existingDNSRecords, func(i, j int) bool {
-		return existingDNSRecords[i].Content == addr
-	})
-	for _, record := range existingDNSRecords {
-		log.WithFields(log.Fields{
-			"comment": record.Comment,
-			"content": record.Content,
-			"domain":  record.Name,
-			"proxied": *record.Proxied,
-			"ttl":     record.TTL,
-		}).Debug("Found DNS record")
-	}
-
-	sameHostFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
-		recHost := strings.Split(record.Comment, " ")[0]
-		cfgHost := strings.Split(cfg.hostId, " ")[0]
-		return recHost == cfgHost
-	}
-
-	// Update the current record if it is either:
-	//   1. has the same address as the desired record (proxied, ttl, or comment may have changed),
-	//   2. has the same comment as the desired record and multihost is enabled (address and possibly proxied or ttl have changed),
-	//   3. has empty comment and multihost is disabled (address and possibly proxied or ttl have changed).
-	// NOTE: despite API returning empty Comment as `null`, cloudflare-go represents it as an empty string.
-	//       This can break in the future.
-	shouldUpdateFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
-		return record.Content == addr ||
-			cfg.multihost && sameHostFn(record, cfg) ||
-			!cfg.multihost && record.Comment == ""
-	}
-
-	// Look through all existing records.
-	// Update the matching record if found, delete the rest.
-	// If no matching record is found, create a new one.
-	updated := false
-	for _, record := range existingDNSRecords {
-		if !updated && shouldUpdateFn(record, cfg) {
-			updateDNSRecord(api, zoneID, record, desiredDNSRecord)
-			updated = true
-			continue
-		}
-
-		// In multihost mode, delete all records with the same host-id as the
-		// current host. This should not happen during normal operation.
-		if updated && record.Comment == cfg.hostId && cfg.multihost {
-			log.WithField("record", record).
-				Warn("Found another record with the same host-id as the current host, deleting it")
-			deleteDNSRecord(api, zoneID, record)
-			continue
-		}
-
-		// In single host mode, delete all other records.
-		if updated && !cfg.multihost {
-			deleteDNSRecord(api, zoneID, record)
-			continue
-		}
-	}
-
-	if !updated {
-		createNewDNSRecord(api, zoneID, desiredDNSRecord)
-	}
-}
-
-func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord cloudflare.DNSRecord) {
-	ctx := context.Background()
-	log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
-	_, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
-		Comment: desiredDNSRecord.Comment,
-		Content: desiredDNSRecord.Content,
-		Name:    desiredDNSRecord.Name,
-		Proxied: desiredDNSRecord.Proxied,
-		TTL:     desiredDNSRecord.TTL,
-		Type:    desiredDNSRecord.Type,
-	})
-	if err != nil {
-		log.WithError(err).Fatal("Couldn't create DNS record")
-	}
-}
-
-func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DNSRecord, newRecord cloudflare.DNSRecord) {
-	ctx := context.Background()
-	proxiedMatches := newRecord.Proxied == nil ||
-		(oldRecord.Proxied != nil && *oldRecord.Proxied == *newRecord.Proxied)
-	if oldRecord.Content == newRecord.Content &&
-		proxiedMatches &&
-		oldRecord.TTL == newRecord.TTL &&
-		oldRecord.Comment == newRecord.Comment {
-		log.WithField("record", oldRecord).Info("DNS record is up to date")
-		return
-	}
-
-	log.WithFields(log.Fields{
-		"new": newRecord,
-		"old": oldRecord,
-	}).Info("Updating existing DNS record")
-	_, err := api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
-		Comment: &newRecord.Comment,
-		Content: newRecord.Content,
-		ID:      oldRecord.ID,
-		Name:    newRecord.Name,
-		Proxied: newRecord.Proxied,
-		TTL:     newRecord.TTL,
-		Type:    newRecord.Type,
-	})
-	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			"new": newRecord,
-			"old": oldRecord,
-		}).Fatal("Couldn't update DNS record")
-	}
-}
-
-func deleteDNSRecord(api *cloudflare.API, zoneID string, record cloudflare.DNSRecord) {
-	ctx := context.Background()
-	log.WithField("record", record).Info("Deleting DNS record")
-	err := api.DeleteDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), record.ID)
-	if err != nil {
-		log.WithError(err).WithField("record", record).Fatal("Couldn't delete DNS record")
-	}
-}
-
-func getIpv6Address(iface string, prioritySubnets []string) string {
-	netIface, err := net.InterfaceByName(iface)
-	if err != nil {
-		log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
-	}
-	log.WithField("interface", netIface).Debug("Found the interface")
-
-	addrs, err := netIface.Addrs()
-	if err != nil {
-		log.WithError(err).Fatal("Couldn't get interface addresses")
-	}
-
-	// ip.IsGlobalUnicast() returns true for:
-	// GUA = Global Unicast Address
-	// ULA = Unique Local Address
-	// We prefer GUA over ULA.
-	ipv6Addresses := []net.IP{}
-	for _, addr := range addrs {
-		log.WithField("address", addr).Debug("Found address")
-		ip, _, err := net.ParseCIDR(addr.String())
-		if err != nil {
-			log.WithError(err).WithField("address", addr).Error("Couldn't parse address")
-			continue
-		}
-		if ip.IsGlobalUnicast() && ip.To4() == nil {
-			ipv6Addresses = append(ipv6Addresses, ip)
-		}
-	}
-
-	if len(ipv6Addresses) == 0 {
-		log.Fatal("No suitable IPv6 addresses found")
-	}
-
-	// Sort addresses placing GUAs first
-	sort.Slice(ipv6Addresses, func(i, j int) bool {
-		return ipv6IsGUA(ipv6Addresses[i]) && !ipv6IsGUA(ipv6Addresses[j]) ||
-			ipv6IsEUI64(ipv6Addresses[i]) && !ipv6IsEUI64(ipv6Addresses[j])
-	})
-
-	netPrioritySubnets := []net.IPNet{}
-	for _, subnet := range prioritySubnets {
-		_, ipNet, err := net.ParseCIDR(subnet)
-		if err != nil {
-			log.WithError(err).WithField("subnet", subnet).Error("Couldn't parse subnet")
-			continue
-		}
-		netPrioritySubnets = append(netPrioritySubnets, *ipNet)
-	}
-
-	maxWeight := len(netPrioritySubnets)
-	weightedAddresses := make(map[string]int)
-	for _, ip := range ipv6Addresses {
-		weightedAddresses[ip.String()] = maxWeight
-		for i, ipNet := range netPrioritySubnets {
-			if ipNet.Contains(ip) {
-				weightedAddresses[ip.String()] = i
-				break
-			}
-		}
-	}
-	log.WithFields(log.Fields{
-		"addresses": ipv6Addresses,
-		"weighted":  weightedAddresses,
-	}).Debug("Found and weighted public IPv6 addresses")
-
-	var selectedIp string
-	selectedWeight := maxWeight + 1
-	for ip, weight := range weightedAddresses {
-		if weight < selectedWeight {
-			selectedIp = ip
-			selectedWeight = weight
-		}
-	}
-
-	log.WithField("addresses", ipv6Addresses).Infof("Found %d public IPv6 addresses, selected %s", len(ipv6Addresses), selectedIp)
-	ipIP := net.ParseIP(selectedIp)
-	if !ipv6IsEUI64(ipIP) {
-		log.Warn("The selected address doesn't have a unique EUI-64, it may change frequently")
-	}
-	if !ipv6IsGUA(ipIP) {
-		log.Warn("The selected address is not a GUA, it may not be routable")
-	}
-	return selectedIp
-}
-
-func getZoneFromDomain(domain string) string {
-	parts := strings.Split(domain, ".")
-	return strings.Join(parts[len(parts)-2:], ".")
-}
-
-func getOldIpv6Address(stateFilepath string) string {
-	ipv6, err := os.ReadFile(stateFilepath)
-	if err != nil {
-		log.WithError(err).Warn("Can't get old ipv6 address")
-		return "INVALID"
-	}
-	return string(ipv6)
-}
-
-func setOldIpv6Address(stateFilepath string, ipv6 string) {
-	err := os.WriteFile(stateFilepath, []byte(ipv6), 0o644)
-	if err != nil {
-		log.WithError(err).Error("Can't write state file")
+		bs.setOldIp(ip)
 	}
 }
 
@@ -650,21 +410,6 @@ func checkConfigAccessMode(configFilename string) {
 	if info.Mode()&0o011 != 0 {
 		log.Warn("Config file should be accessible only by owner")
 	}
-}
-
-// Custom function to check if an IPv6 address is a GUA.
-// net.IP.IsGlobalUnicast() returns true also for ULAs.
-func ipv6IsGUA(ip net.IP) bool {
-	return ip[0]&0b11100000 == 0b00100000
-}
-
-// Custom function to check if an IPv6 address is generated using the EUI-64 format.
-// See RFC 4291, section 2.5.1.
-func ipv6IsEUI64(ip net.IP) bool {
-	// If the seventh bit from the left of the Interface ID is 1, and "FF FE" is
-	// found in the middle of the Interface ID, then the address is generated
-	// using the EUI-64 format.
-	return ip[8]&0b00000010 == 0b00000010 && ip[11] == 0xff && ip[12] == 0xfe
 }
 
 // Ptr returns a pointer to the value passed as an argument.
