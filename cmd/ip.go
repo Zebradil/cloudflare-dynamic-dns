@@ -8,10 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ipStack interface {
-	getIP() string
-}
-
 type ipStackUtil interface {
 	filterIPs([]net.IP) []net.IP
 	sortIPs([]net.IP) []net.IP
@@ -28,10 +24,6 @@ type ipv4Stack struct {
 
 type ipv6Stack struct {
 	baseIpStack
-}
-
-func newStack(cfg runConfig) ipStack {
-	return baseIpStack{cfg}
 }
 
 func (bs baseIpStack) newStack() ipStackUtil {
