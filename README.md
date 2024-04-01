@@ -274,6 +274,31 @@ Or put the configuration in any place and specify it with `--config` flag:
 ./cloudflare-dynamic-dns --config /any/place/config.yaml
 ```
 
+#### Run in a Docker container
+
+For the binary, the usage is the same as for the manual run.
+For the Docker container, we need to mount the configuration file into the container and provide access to the network stack of the host machine:
+
+```shell
+docker run --rm \
+  --volume="/any/place/config.yaml:/config.yaml" \
+  --network=host \
+  ghcr.io/zebradil/cloudflare-dynamic-dns:latest \
+    --config=/config.yaml
+```
+
+To run the program in daemon mode, add `--run-every` flag (and `--detach` if you want to run it in the background):
+
+```shell
+docker run --rm \
+  --volume="/any/place/config.yaml:/config.yaml" \
+  --network=host \
+  --detach \
+  ghcr.io/zebradil/cloudflare-dynamic-dns:latest \
+    --config=/config.yaml \
+    --run-every=5m
+```
+
 ### Systemd service and timer
 
 It is possible to run `cloudflare-dynamic-dns` periodically via systemd.
