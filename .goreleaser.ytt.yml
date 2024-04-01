@@ -1,5 +1,5 @@
 #@ project_name = 'cloudflare-dynamic-dns'
-#@ description = 'Dynamic DNS client for Cloudflare'
+#@ description = 'Dynamic DNS client for Cloudflare with IPv6/IPv4 support'
 #@ maintainer = 'German Lashevich <german.lashevich@gmail.com>'
 #@ url = 'https://github.com/zebradil/cloudflare-dynamic-dns'
 #@ committer_name = 'Zebradil Bot'

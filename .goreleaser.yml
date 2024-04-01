@@ -36,7 +36,7 @@ snapshot:
 aurs:
 - name: cloudflare-dynamic-dns-bin
   homepage: https://github.com/zebradil/cloudflare-dynamic-dns
-  description: Dynamic DNS client for Cloudflare
+  description: Dynamic DNS client for Cloudflare with IPv6/IPv4 support
   maintainers:
   - German Lashevich <german.lashevich@gmail.com>
   license: MIT
@@ -63,7 +63,7 @@ nfpms:
 - vendor: Zebradil
   homepage: https://github.com/zebradil/cloudflare-dynamic-dns
   maintainer: German Lashevich <german.lashevich@gmail.com>
-  description: Dynamic DNS client for Cloudflare
+  description: Dynamic DNS client for Cloudflare with IPv6/IPv4 support
   license: MIT
   formats:
   - apk
