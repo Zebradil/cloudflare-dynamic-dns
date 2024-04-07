@@ -1,3 +1,10 @@
+## [4.2.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.0...4.2.1) (2024-04-07)
+
+
+### Bug Fixes
+
+* correct usage of hashing function to output fixed length ([21d244a](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/21d244a68cc51c50424a3f7e2b46bf31f1045102))
+
 # [4.2.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.1.1...4.2.0) (2024-03-30)
 
 
