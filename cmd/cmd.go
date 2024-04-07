@@ -366,9 +366,9 @@ func collectConfiguration() runConfig {
 	}
 
 	if stateFileEnabled && stateFilepath == "" {
-		h := fnv.New64a()
-		domainHash := h.Sum([]byte(strings.Join(domains, " ")))
-		stateFilepath = fmt.Sprintf("%s_%s_%x", iface, stack, domainHash)
+		domainHash := fnv.New64a()
+		domainHash.Write([]byte(strings.Join(domains, " ")))
+		stateFilepath = fmt.Sprintf("%s_%s_%x", iface, stack, domainHash.Sum64())
 		// If STATE_DIRECTORY is set, use it as the state file directory,
 		// otherwise use the current directory.
 		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
