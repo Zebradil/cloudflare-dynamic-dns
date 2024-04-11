@@ -20,7 +20,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 
 	desiredDNSRecord := cloudflare.DNSRecord{Type: recordType, Name: domain, Content: addr, TTL: cfg.ttl}
 	if cfg.multihost {
-		desiredDNSRecord.Comment = cfg.hostId
+		desiredDNSRecord.Comment = cfg.hostID
 	}
 
 	if cfg.proxy != "auto" {
@@ -58,7 +58,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 
 	sameHostFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
 		recHost := strings.Split(record.Comment, " ")[0]
-		cfgHost := strings.Split(cfg.hostId, " ")[0]
+		cfgHost := strings.Split(cfg.hostID, " ")[0]
 		return recHost == cfgHost
 	}
 
@@ -87,7 +87,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 
 		// In multihost mode, delete all records with the same host-id as the
 		// current host. This should not happen during normal operation.
-		if updated && record.Comment == cfg.hostId && cfg.multihost {
+		if updated && record.Comment == cfg.hostID && cfg.multihost {
 			log.WithField("record", record).
 				Warn("Found another record with the same host-id as the current host, deleting it")
 			deleteDNSRecord(api, zoneID, record)
@@ -106,7 +106,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	}
 }
 
-func getRecordType(stack stack) string {
+func getRecordType(stack IPStack) string {
 	if stack == ipv4 {
 		return "A"
 	}

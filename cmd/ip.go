@@ -23,7 +23,7 @@ type ipv4Stack struct{}
 
 type ipv6Stack struct{}
 
-func newIpManager(cfg runConfig) ipManager {
+func newIPManager(cfg runConfig) ipManager {
 	switch cfg.stack {
 	case ipv4:
 		return ipManager{cfg, ipv4Stack{}}
@@ -37,14 +37,14 @@ func newIpManager(cfg runConfig) ipManager {
 
 func (mgr ipManager) getIP() string {
 	ips := mgr.getAllIPs()
-	ips = mgr.ipStack.filterIPs(ips)
+	ips = mgr.filterIPs(ips)
 	if len(ips) == 0 {
 		log.Fatal("No suitable addresses found")
 	}
-	ips = mgr.ipStack.sortIPs(ips)
+	ips = mgr.sortIPs(ips)
 	ip := mgr.pickIP(ips)
 	log.WithField("addresses", ips).Infof("Found %d public IP addresses, selected %s", len(ips), ip)
-	mgr.ipStack.logIP(ip)
+	mgr.logIP(ip)
 	return ip.String()
 }
 
@@ -146,16 +146,16 @@ func (s ipManager) pickIP(ips []net.IP) net.IP {
 		"weighted":  weightedAddresses,
 	}).Debug("Found and weighted public IP addresses")
 
-	var selectedIp string
+	var selectedIP string
 	selectedWeight := maxWeight + 1
 	for ip, weight := range weightedAddresses {
 		if weight < selectedWeight {
-			selectedIp = ip
+			selectedIP = ip
 			selectedWeight = weight
 		}
 	}
 
-	return net.ParseIP(selectedIp)
+	return net.ParseIP(selectedIP)
 }
 
 func (s ipv6Stack) logIP(ip net.IP) {
@@ -179,7 +179,7 @@ func (s ipv4Stack) logIP(ip net.IP) {
 	}
 }
 
-func (mgr ipManager) getOldIp() string {
+func (mgr ipManager) getOldIP() string {
 	ip, err := os.ReadFile(mgr.cfg.stateFilepath)
 	if err != nil {
 		log.WithError(err).Warn("Can't get old ipv6 address")
@@ -188,7 +188,7 @@ func (mgr ipManager) getOldIp() string {
 	return string(ip)
 }
 
-func (mgr ipManager) setOldIp(ip string) {
+func (mgr ipManager) setOldIP(ip string) {
 	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
 	if err != nil {
 		log.WithError(err).Error("Can't write state file")

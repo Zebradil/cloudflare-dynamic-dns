@@ -151,22 +151,22 @@ For example:
     CFDDNS_STATE_FILE=/tmp/cfddns-eth0.state
 `
 
-type stack string
+type IPStack string
 
 const (
-	ipv4 stack = "ipv4"
-	ipv6 stack = "ipv6"
+	ipv4 IPStack = "ipv4"
+	ipv6 IPStack = "ipv6"
 )
 
 type runConfig struct {
 	domains         []string
-	hostId          string
+	hostID          string
 	iface           string
 	multihost       bool
 	prioritySubnets []string
 	proxy           string
 	runEvery        time.Duration
-	stack           stack
+	stack           IPStack
 	stateFilepath   string
 	token           string
 	ttl             int
@@ -321,14 +321,14 @@ func collectConfiguration() runConfig {
 
 	var (
 		domains          = viper.GetStringSlice("domains")
-		hostId           = viper.GetString("host-id")
+		hostID           = viper.GetString("host-id")
 		iface            = viper.GetString("iface")
 		multihost        = viper.GetBool("multihost")
 		prioritySubnets  = viper.GetStringSlice("priority-subnets")
 		proxy            = viper.GetString("proxy")
 		runEvery         = viper.GetString("run-every")
 		sleepDuration    = time.Duration(0)
-		stack            = stack(viper.GetString("stack"))
+		stack            = IPStack(viper.GetString("stack"))
 		stateFileEnabled = viper.IsSet("state-file")
 		stateFilepath    = viper.GetString("state-file")
 		token            = viper.GetString("token")
@@ -378,13 +378,13 @@ func collectConfiguration() runConfig {
 		}
 	}
 
-	if multihost && hostId != "" {
-		hostId = fmt.Sprintf("%s (managed by cloudflare-dynamic-dns)", hostId)
+	if multihost && hostID != "" {
+		hostID = fmt.Sprintf("%s (managed by cloudflare-dynamic-dns)", hostID)
 	}
 
 	cfg := runConfig{
 		domains:         domains,
-		hostId:          hostId,
+		hostID:          hostID,
 		iface:           iface,
 		multihost:       multihost,
 		prioritySubnets: prioritySubnets,
@@ -410,7 +410,7 @@ func collectConfiguration() runConfig {
 		log.Fatal("No domains specified")
 	}
 
-	if multihost && hostId == "" {
+	if multihost && hostID == "" {
 		log.Fatal("Multihost mode requires host-id to be specified")
 	}
 
@@ -420,7 +420,7 @@ func collectConfiguration() runConfig {
 func logConfig(cfg runConfig) {
 	log.WithFields(log.Fields{
 		"domains":         cfg.domains,
-		"hostId":          cfg.hostId,
+		"hostId":          cfg.hostID,
 		"iface":           cfg.iface,
 		"multihost":       cfg.multihost,
 		"prioritySubnets": cfg.prioritySubnets,
@@ -434,10 +434,10 @@ func logConfig(cfg runConfig) {
 }
 
 func run(cfg runConfig) {
-	ipMgr := newIpManager(cfg)
+	ipMgr := newIPManager(cfg)
 	ip := ipMgr.getIP()
 
-	if cfg.stateFilepath != "" && ip == ipMgr.getOldIp() {
+	if cfg.stateFilepath != "" && ip == ipMgr.getOldIP() {
 		log.Info("The address hasn't changed, nothing to do")
 		log.Info("To bypass this check run without the --state-file flag or remove the state file: ", cfg.stateFilepath)
 		return
@@ -454,7 +454,7 @@ func run(cfg runConfig) {
 	}
 
 	if cfg.stateFilepath != "" {
-		ipMgr.setOldIp(ip)
+		ipMgr.setOldIP(ip)
 	}
 }
 
