@@ -43,7 +43,7 @@ func (mgr ipManager) getIP() string {
 	}
 	ips = mgr.ipStack.sortIPs(ips)
 	ip := mgr.pickIP(ips)
-	log.WithField("addresses", ips).Infof("Found %d public IPv6 addresses, selected %s", len(ips), ip)
+	log.WithField("addresses", ips).Infof("Found %d public IP addresses, selected %s", len(ips), ip)
 	mgr.ipStack.logIP(ip)
 	return ip.String()
 }
