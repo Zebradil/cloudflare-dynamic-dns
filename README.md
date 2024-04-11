@@ -324,10 +324,10 @@ This way (via running multiple timers) you can use multiple configurations at th
 
 By default, a timer is triggered one minute after boot and then every 5 minutes. It is not configurable currently.
 
-To avoid unnecessary requests to Cloudflare API state files are used.
-They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variables in corresponding config files (`iface` and md5 hash of `domains`).
-A state file contains IPv6 address which was set in a Cloudflare DNS AAAA record during the last successful run.
-If the current IPv6 address is the same as the one in the state file, no additional API requests are done.
+State files are used to avoid unnecessary requests to Cloudflare API.
+They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variables in corresponding config files (`iface` and a hash of `domains`).
+A state file contains an address which was set in a Cloudflare DNS AAAA or A record during the last successful run.
+If the current address is the same as the one in the state file, no additional API requests are done.
 
 ## Development
 
