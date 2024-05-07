@@ -35,4 +35,4 @@ jobs:
             ) \
             | tee /dev/stderr \
             | test $(wc -l) -eq 0
-      - uses: golangci/golangci-lint-action@v4
+      - uses: golangci/golangci-lint-action@v6
