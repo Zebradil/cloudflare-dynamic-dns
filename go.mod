@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/cloudflare/cloudflare-go v0.95.0
+	github.com/cloudflare/cloudflare-go/v2 v2.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 )
