@@ -59,6 +59,7 @@
 #@ end
 
 ---
+version: 2
 project_name: #@ project_name
 before:
   hooks:
