@@ -1,3 +1,10 @@
+## [4.2.12](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.11...4.2.12) (2024-07-25)
+
+
+### Bug Fixes
+
+* use publicsuffix for DNS zone detection ([bcf72ed](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/bcf72ed503c00809385c8e75af0014d2c79081da)), closes [#125](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/125)
+
 ## [4.2.11](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.10...4.2.11) (2024-07-18)
 
 
