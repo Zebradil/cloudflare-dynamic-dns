@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/weppos/publicsuffix-go/publicsuffix"
 	"sort"
 	"strings"
 
@@ -13,7 +14,13 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	ctx := context.Background()
 	recordType := getRecordType(cfg.stack)
 
-	zoneID, err := api.ZoneIDByName(getZoneFromDomain(domain))
+	zoneName, err := publicsuffix.Domain(domain)
+	if err != nil {
+		log.WithError(err).Fatal("Couldn't get ZoneName")
+	} else {
+		log.WithField("zoneName", zoneName).Debug("Got ZoneName")
+	}
+	zoneID, err := api.ZoneIDByName(zoneName)
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't get ZoneID")
 	}
@@ -173,9 +180,4 @@ func deleteDNSRecord(api *cloudflare.API, zoneID string, record cloudflare.DNSRe
 	if err != nil {
 		log.WithError(err).WithField("record", record).Fatal("Couldn't delete DNS record")
 	}
-}
-
-func getZoneFromDomain(domain string) string {
-	parts := strings.Split(domain, ".")
-	return strings.Join(parts[len(parts)-2:], ".")
 }
