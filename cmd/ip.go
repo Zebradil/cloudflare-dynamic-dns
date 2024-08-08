@@ -3,15 +3,12 @@ package cmd
 import (
 	"net"
 	"os"
-	"sort"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type ipStack interface {
-	filterIPs([]net.IP) []net.IP
 	logIP(net.IP)
-	sortIPs([]net.IP) []net.IP
 }
 
 type ipManager struct {
@@ -37,12 +34,10 @@ func newIPManager(cfg runConfig) ipManager {
 
 func (mgr ipManager) getIP() string {
 	ips := mgr.getAllIPs()
-	ips = mgr.filterIPs(ips)
-	if len(ips) == 0 {
+	ip := mgr.pickIP(ips)
+	if ip == nil {
 		log.Fatal("No suitable addresses found")
 	}
-	ips = mgr.sortIPs(ips)
-	ip := mgr.pickIP(ips)
 	log.WithField("addresses", ips).Infof("Found %d public IP addresses, selected %s", len(ips), ip)
 	mgr.logIP(ip)
 	return ip.String()
@@ -73,89 +68,86 @@ func (s ipManager) getAllIPs() []net.IP {
 	return ips
 }
 
-func (s ipv6Stack) filterIPs(ips []net.IP) []net.IP {
-	// ip.IsGlobalUnicast() returns true for:
-	// GUA = Global Unicast Address
-	// ULA = Unique Local Address
-	// We prefer GUA over ULA.
-	ipv6s := []net.IP{}
-	for _, ip := range ips {
-		if ip.IsGlobalUnicast() && ip.To4() == nil {
-			ipv6s = append(ipv6s, ip)
-		}
-	}
+// The score function evaluates the value of a given IP address and returns
+// a score of type uint64.
+// The higher the score, the more valuable the IP address.
+func (s ipManager) score(ip net.IP) uint64 {
+	// Score format:
+	// +------------+------------------+--------------+
+	// | Reserved   | Priority Subnets | Address Type |
+	// | (28 bits)  |    (32 bits)     |   (4 bits)   |
+	// +------------+------------------+--------------+
+	score := uint64(0)
 
-	return ipv6s
-}
-
-func (s ipv4Stack) filterIPs(ips []net.IP) []net.IP {
-	ipv4s := []net.IP{}
-	for _, ip := range ips {
+	// Scoring by IP address type
+	if len(ip) == 16 {
 		if ip.To4() != nil {
-			ipv4s = append(ipv4s, ip)
+			return 0
 		}
+		if !ip.IsGlobalUnicast() {
+			return 0
+		}
+		if ipv6IsGUA(ip) {
+			score += 0x8
+			if ipv6IsEUI64(ip) {
+				score += 0x4
+			}
+		}
+	} else if len(ip) == 4 {
+		if ip.To4() == nil {
+			return 0
+		}
+		if ip.IsGlobalUnicast() {
+			score += 0x8
+		}
+		if ipv4IsSAS(ip) {
+			score += 0x4
+		}
+		if ip.IsPrivate() {
+			score += 0x2
+		}
+	} else {
+		return 0
 	}
+	score += 0x1
 
-	return ipv4s
-}
-
-func (s ipv6Stack) sortIPs(ips []net.IP) []net.IP {
-	// Sort addresses placing GUAs first
-	sort.Slice(ips, func(i, j int) bool {
-		return ipv6IsGUA(ips[i]) && !ipv6IsGUA(ips[j]) ||
-			ipv6IsEUI64(ips[i]) && !ipv6IsEUI64(ips[j])
-	})
-	return ips
-}
-
-func (s ipv4Stack) sortIPs(ips []net.IP) []net.IP {
-	// Sort addresses placing GUAs first, then Shared Address Space addresses,
-	// then private addresses, then loopback addresses.
-	sort.Slice(ips, func(i, j int) bool {
-		return ips[i].IsGlobalUnicast() && !ips[j].IsGlobalUnicast() ||
-			ipv4IsSAS(ips[i]) && !ipv4IsSAS(ips[j]) ||
-			ips[i].IsPrivate() && !ips[j].IsPrivate()
-	})
-	return ips
-}
-
-func (s ipManager) pickIP(ips []net.IP) net.IP {
-	netPrioritySubnets := []net.IPNet{}
-	for _, subnet := range s.cfg.prioritySubnets {
+	// Scoring by priority subnet
+	maxOrder := -1
+	for order, subnet := range s.cfg.prioritySubnets {
 		_, ipNet, err := net.ParseCIDR(subnet)
 		if err != nil {
 			log.WithError(err).WithField("subnet", subnet).Error("Couldn't parse subnet")
 			continue
 		}
-		netPrioritySubnets = append(netPrioritySubnets, *ipNet)
-	}
-
-	maxWeight := len(netPrioritySubnets)
-	weightedAddresses := make(map[string]int)
-	for _, ip := range ips {
-		weightedAddresses[ip.String()] = maxWeight
-		for i, ipNet := range netPrioritySubnets {
-			if ipNet.Contains(ip) {
-				weightedAddresses[ip.String()] = i
-				break
-			}
+		order++
+		if ipNet.Contains(ip) {
+			maxOrder = order
 		}
 	}
-	log.WithFields(log.Fields{
-		"addresses": ips,
-		"weighted":  weightedAddresses,
-	}).Debug("Found and weighted public IP addresses")
+	if maxOrder >= 0 {
+		score += uint64((1 + len(s.cfg.prioritySubnets) - maxOrder)) << 4
+	}
+	return score
+}
 
-	var selectedIP string
-	selectedWeight := maxWeight + 1
-	for ip, weight := range weightedAddresses {
-		if weight < selectedWeight {
-			selectedIP = ip
-			selectedWeight = weight
+func (s ipManager) pickIP(ips []net.IP) net.IP {
+	bestIpIdx := -1
+	bestScore := uint64(0) // any address with score 0 will not be picked
+	for idx, ip := range ips {
+		score := s.score(ip)
+		log.WithFields(log.Fields{
+			"address": ip,
+			"score":   score,
+		}).Debug("Address score")
+		if score > bestScore {
+			bestIpIdx = idx
+			bestScore = score
 		}
 	}
-
-	return net.ParseIP(selectedIP)
+	if bestIpIdx < 0 {
+		return nil
+	}
+	return ips[bestIpIdx]
 }
 
 func (s ipv6Stack) logIP(ip net.IP) {
