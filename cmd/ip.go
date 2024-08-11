@@ -35,7 +35,14 @@ func newIPManager(cfg runConfig) ipManager {
 	}
 }
 
-func (mgr ipManager) getIP() string {
+func (mgr ipManager) getIPFromCommand() string {
+	// Example see here: https://github.com/go-task/task/blob/51c569ef375b51782d6d390f33ef3a40fc9254f1/internal/execext/exec.go#L35
+	ip := "not implemented"
+	log.WithField("address", ip).Info("Using the address from the command line")
+	return ip
+}
+
+func (mgr ipManager) getIPFromInterface() string {
 	ips := mgr.getAllIPs()
 	ips = mgr.filterIPs(ips)
 	if len(ips) == 0 {
