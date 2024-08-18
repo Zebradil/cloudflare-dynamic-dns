@@ -8,8 +8,9 @@ import (
 )
 
 type ipStack interface {
-	logIP(net.IP)
+	checkIPStack(net.IP) bool
 	getBaseScore(net.IP) uint16
+	logIP(net.IP)
 }
 
 type ipManager struct {
@@ -34,7 +35,7 @@ func newIPManager(cfg runConfig) ipManager {
 }
 
 func (mgr ipManager) getIP() string {
-	ips := mgr.getAllIPs()
+	ips := mgr.getAllStackIPs()
 	ip := mgr.pickIP(ips)
 	if ip == nil {
 		log.Fatal("No suitable addresses found")
@@ -44,8 +45,8 @@ func (mgr ipManager) getIP() string {
 	return ip.String()
 }
 
-func (s ipManager) getAllIPs() []net.IP {
-	iface := s.cfg.iface
+func (mgr ipManager) getAllStackIPs() []net.IP {
+	iface := mgr.cfg.iface
 	netIface, err := net.InterfaceByName(iface)
 	if err != nil {
 		log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
@@ -64,9 +65,57 @@ func (s ipManager) getAllIPs() []net.IP {
 			log.WithError(err).WithField("address", addr).Error("Couldn't parse address")
 			continue
 		}
-		ips = append(ips, ip)
+		if mgr.checkIPStack(ip) {
+			ips = append(ips, ip)
+		}
 	}
 	return ips
+}
+
+// The score function evaluates the value of a given IP address and returns
+// a score of type uint64.
+// The higher the score, the more valuable the IP address.
+func (mgr ipManager) score(ip net.IP) uint64 {
+	// Score format:
+	// +------------+------------------+--------------+
+	// | Reserved   | Priority Subnets | Address Type |
+	// | (16 bits)  |    (32 bits)     |   (16 bits)  |
+	// +------------+------------------+--------------+
+	score := uint64(mgr.getBaseScore(ip))
+
+	// Scoring by priority subnet
+	for order, subnet := range mgr.cfg.prioritySubnets {
+		_, ipNet, err := net.ParseCIDR(subnet)
+		if err != nil {
+			log.WithError(err).WithField("subnet", subnet).Error("Couldn't parse subnet")
+			continue
+		}
+		if ipNet.Contains(ip) {
+			score += uint64(len(mgr.cfg.prioritySubnets)-order) << 16
+			break
+		}
+	}
+	return score
+}
+
+func (mgr ipManager) pickIP(ips []net.IP) net.IP {
+	bestIPIdx := -1
+	bestScore := uint64(0) // any address with score 0 will not be picked
+	for idx, ip := range ips {
+		score := mgr.score(ip)
+		log.WithFields(log.Fields{
+			"address": ip,
+			"score":   score,
+		}).Debug("Address score")
+		if score > bestScore {
+			bestIPIdx = idx
+			bestScore = score
+		}
+	}
+	if bestIPIdx < 0 {
+		return nil
+	}
+	return ips[bestIPIdx]
 }
 
 func (s ipv6Stack) getBaseScore(ip net.IP) uint16 {
@@ -75,6 +124,7 @@ func (s ipv6Stack) getBaseScore(ip net.IP) uint16 {
 	if ip.To4() != nil {
 		return 0
 	}
+
 	if !ip.IsGlobalUnicast() {
 		return 0
 	}
@@ -96,12 +146,15 @@ func (s ipv4Stack) getBaseScore(ip net.IP) uint16 {
 	if ip.To4() == nil {
 		return 0
 	}
+
 	if ip.IsGlobalUnicast() {
 		score += 0x8
 	}
+
 	if ipv4IsSAS(ip) {
 		score += 0x4
 	}
+
 	if ip.IsPrivate() {
 		score += 0x2
 	}
@@ -109,50 +162,28 @@ func (s ipv4Stack) getBaseScore(ip net.IP) uint16 {
 	return score
 }
 
-// The score function evaluates the value of a given IP address and returns
-// a score of type uint64.
-// The higher the score, the more valuable the IP address.
-func (s ipManager) score(ip net.IP) uint64 {
-	// Score format:
-	// +------------+------------------+--------------+
-	// | Reserved   | Priority Subnets | Address Type |
-	// | (16 bits)  |    (32 bits)     |   (16 bits)  |
-	// +------------+------------------+--------------+
-	score := uint64(s.getBaseScore(ip))
-
-	// Scoring by priority subnet
-	for order, subnet := range s.cfg.prioritySubnets {
-		_, ipNet, err := net.ParseCIDR(subnet)
-		if err != nil {
-			log.WithError(err).WithField("subnet", subnet).Error("Couldn't parse subnet")
-			continue
-		}
-		if ipNet.Contains(ip) {
-			score += uint64(len(s.cfg.prioritySubnets) - order) << 16
-			break
-		}
+func (mgr ipManager) getOldIP() string {
+	ip, err := os.ReadFile(mgr.cfg.stateFilepath)
+	if err != nil {
+		log.WithError(err).Warn("Can't get old ipv6 address")
+		return "INVALID"
 	}
-	return score
+	return string(ip)
 }
 
-func (s ipManager) pickIP(ips []net.IP) net.IP {
-	bestIpIdx := -1
-	bestScore := uint64(0) // any address with score 0 will not be picked
-	for idx, ip := range ips {
-		score := s.score(ip)
-		log.WithFields(log.Fields{
-			"address": ip,
-			"score":   score,
-		}).Debug("Address score")
-		if score > bestScore {
-			bestIpIdx = idx
-			bestScore = score
-		}
+func (mgr ipManager) setOldIP(ip string) {
+	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
+	if err != nil {
+		log.WithError(err).Error("Can't write state file")
 	}
-	if bestIpIdx < 0 {
-		return nil
-	}
-	return ips[bestIpIdx]
+}
+
+func (s ipv4Stack) checkIPStack(ip net.IP) bool {
+	return ip.To4() != nil
+}
+
+func (s ipv6Stack) checkIPStack(ip net.IP) bool {
+	return ip.To4() == nil
 }
 
 func (s ipv6Stack) logIP(ip net.IP) {
@@ -173,22 +204,6 @@ func (s ipv4Stack) logIP(ip net.IP) {
 	}
 	if ip.IsLoopback() {
 		log.Warn("The selected address is a loopback address")
-	}
-}
-
-func (mgr ipManager) getOldIP() string {
-	ip, err := os.ReadFile(mgr.cfg.stateFilepath)
-	if err != nil {
-		log.WithError(err).Warn("Can't get old ipv6 address")
-		return "INVALID"
-	}
-	return string(ip)
-}
-
-func (mgr ipManager) setOldIP(ip string) {
-	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
-	if err != nil {
-		log.WithError(err).Error("Can't write state file")
 	}
 }
 
