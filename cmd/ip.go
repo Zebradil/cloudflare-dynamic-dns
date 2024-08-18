@@ -3,15 +3,14 @@ package cmd
 import (
 	"net"
 	"os"
-	"sort"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type ipStack interface {
-	filterIPs([]net.IP) []net.IP
+	checkIPStack(net.IP) bool
+	getBaseScore(net.IP) uint16
 	logIP(net.IP)
-	sortIPs([]net.IP) []net.IP
 }
 
 type ipManager struct {
@@ -36,20 +35,18 @@ func newIPManager(cfg runConfig) ipManager {
 }
 
 func (mgr ipManager) getIP() string {
-	ips := mgr.getAllIPs()
-	ips = mgr.filterIPs(ips)
-	if len(ips) == 0 {
+	ips := mgr.getAllStackIPs()
+	ip := mgr.pickIP(ips)
+	if ip == nil {
 		log.Fatal("No suitable addresses found")
 	}
-	ips = mgr.sortIPs(ips)
-	ip := mgr.pickIP(ips)
 	log.WithField("addresses", ips).Infof("Found %d public IP addresses, selected %s", len(ips), ip)
 	mgr.logIP(ip)
 	return ip.String()
 }
 
-func (s ipManager) getAllIPs() []net.IP {
-	iface := s.cfg.iface
+func (mgr ipManager) getAllStackIPs() []net.IP {
+	iface := mgr.cfg.iface
 	netIface, err := net.InterfaceByName(iface)
 	if err != nil {
 		log.WithError(err).WithField("iface", iface).Fatal("Can't get the interface")
@@ -68,94 +65,125 @@ func (s ipManager) getAllIPs() []net.IP {
 			log.WithError(err).WithField("address", addr).Error("Couldn't parse address")
 			continue
 		}
-		ips = append(ips, ip)
-	}
-	return ips
-}
-
-func (s ipv6Stack) filterIPs(ips []net.IP) []net.IP {
-	// ip.IsGlobalUnicast() returns true for:
-	// GUA = Global Unicast Address
-	// ULA = Unique Local Address
-	// We prefer GUA over ULA.
-	ipv6s := []net.IP{}
-	for _, ip := range ips {
-		if ip.IsGlobalUnicast() && ip.To4() == nil {
-			ipv6s = append(ipv6s, ip)
+		if mgr.checkIPStack(ip) {
+			ips = append(ips, ip)
 		}
 	}
-
-	return ipv6s
-}
-
-func (s ipv4Stack) filterIPs(ips []net.IP) []net.IP {
-	ipv4s := []net.IP{}
-	for _, ip := range ips {
-		if ip.To4() != nil {
-			ipv4s = append(ipv4s, ip)
-		}
-	}
-
-	return ipv4s
-}
-
-func (s ipv6Stack) sortIPs(ips []net.IP) []net.IP {
-	// Sort addresses placing GUAs first
-	sort.Slice(ips, func(i, j int) bool {
-		return ipv6IsGUA(ips[i]) && !ipv6IsGUA(ips[j]) ||
-			ipv6IsEUI64(ips[i]) && !ipv6IsEUI64(ips[j])
-	})
 	return ips
 }
 
-func (s ipv4Stack) sortIPs(ips []net.IP) []net.IP {
-	// Sort addresses placing GUAs first, then Shared Address Space addresses,
-	// then private addresses, then loopback addresses.
-	sort.Slice(ips, func(i, j int) bool {
-		return ips[i].IsGlobalUnicast() && !ips[j].IsGlobalUnicast() ||
-			ipv4IsSAS(ips[i]) && !ipv4IsSAS(ips[j]) ||
-			ips[i].IsPrivate() && !ips[j].IsPrivate()
-	})
-	return ips
-}
+// The score function evaluates the value of a given IP address and returns
+// a score of type uint64.
+// The higher the score, the more valuable the IP address.
+func (mgr ipManager) score(ip net.IP) uint64 {
+	// Score format:
+	// +------------+------------------+--------------+
+	// | Reserved   | Priority Subnets | Address Type |
+	// | (16 bits)  |    (32 bits)     |   (16 bits)  |
+	// +------------+------------------+--------------+
+	score := uint64(mgr.getBaseScore(ip))
 
-func (s ipManager) pickIP(ips []net.IP) net.IP {
-	netPrioritySubnets := []net.IPNet{}
-	for _, subnet := range s.cfg.prioritySubnets {
+	// Scoring by priority subnet
+	for order, subnet := range mgr.cfg.prioritySubnets {
 		_, ipNet, err := net.ParseCIDR(subnet)
 		if err != nil {
 			log.WithError(err).WithField("subnet", subnet).Error("Couldn't parse subnet")
 			continue
 		}
-		netPrioritySubnets = append(netPrioritySubnets, *ipNet)
-	}
-
-	maxWeight := len(netPrioritySubnets)
-	weightedAddresses := make(map[string]int)
-	for _, ip := range ips {
-		weightedAddresses[ip.String()] = maxWeight
-		for i, ipNet := range netPrioritySubnets {
-			if ipNet.Contains(ip) {
-				weightedAddresses[ip.String()] = i
-				break
-			}
+		if ipNet.Contains(ip) {
+			score += uint64(len(mgr.cfg.prioritySubnets)-order) << 16
+			break
 		}
 	}
-	log.WithFields(log.Fields{
-		"addresses": ips,
-		"weighted":  weightedAddresses,
-	}).Debug("Found and weighted public IP addresses")
+	return score
+}
 
-	var selectedIP string
-	selectedWeight := maxWeight + 1
-	for ip, weight := range weightedAddresses {
-		if weight < selectedWeight {
-			selectedIP = ip
-			selectedWeight = weight
+func (mgr ipManager) pickIP(ips []net.IP) net.IP {
+	bestIPIdx := -1
+	bestScore := uint64(0) // any address with score 0 will not be picked
+	for idx, ip := range ips {
+		score := mgr.score(ip)
+		log.WithFields(log.Fields{
+			"address": ip,
+			"score":   score,
+		}).Debug("Address score")
+		if score > bestScore {
+			bestIPIdx = idx
+			bestScore = score
 		}
 	}
+	if bestIPIdx < 0 {
+		return nil
+	}
+	return ips[bestIPIdx]
+}
 
-	return net.ParseIP(selectedIP)
+func (s ipv6Stack) getBaseScore(ip net.IP) uint16 {
+	score := uint16(1)
+
+	if ip.To4() != nil {
+		return 0
+	}
+
+	if !ip.IsGlobalUnicast() {
+		return 0
+	}
+
+	if ipv6IsGUA(ip) {
+		score += 0x8
+	}
+
+	if ipv6IsEUI64(ip) {
+		score += 0x4
+	}
+
+	return score
+}
+
+func (s ipv4Stack) getBaseScore(ip net.IP) uint16 {
+	score := uint16(1)
+
+	if ip.To4() == nil {
+		return 0
+	}
+
+	if ip.IsGlobalUnicast() {
+		score += 0x8
+	}
+
+	if ipv4IsSAS(ip) {
+		score += 0x4
+	}
+
+	if ip.IsPrivate() {
+		score += 0x2
+	}
+
+	return score
+}
+
+func (mgr ipManager) getOldIP() string {
+	ip, err := os.ReadFile(mgr.cfg.stateFilepath)
+	if err != nil {
+		log.WithError(err).Warn("Can't get old ipv6 address")
+		return "INVALID"
+	}
+	return string(ip)
+}
+
+func (mgr ipManager) setOldIP(ip string) {
+	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
+	if err != nil {
+		log.WithError(err).Error("Can't write state file")
+	}
+}
+
+func (s ipv4Stack) checkIPStack(ip net.IP) bool {
+	return ip.To4() != nil
+}
+
+func (s ipv6Stack) checkIPStack(ip net.IP) bool {
+	return ip.To4() == nil
 }
 
 func (s ipv6Stack) logIP(ip net.IP) {
@@ -176,22 +204,6 @@ func (s ipv4Stack) logIP(ip net.IP) {
 	}
 	if ip.IsLoopback() {
 		log.Warn("The selected address is a loopback address")
-	}
-}
-
-func (mgr ipManager) getOldIP() string {
-	ip, err := os.ReadFile(mgr.cfg.stateFilepath)
-	if err != nil {
-		log.WithError(err).Warn("Can't get old ipv6 address")
-		return "INVALID"
-	}
-	return string(ip)
-}
-
-func (mgr ipManager) setOldIP(ip string) {
-	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
-	if err != nil {
-		log.WithError(err).Error("Can't write state file")
 	}
 }
 
