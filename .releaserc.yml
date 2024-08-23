@@ -1,7 +1,6 @@
 ---
 branches:
   - main
-  - nix-flake
 plugins:
   - '@semantic-release/commit-analyzer'
   - - '@semantic-release/exec'
