@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"bytes"
+	"context"
 	"net"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/zebradil/cloudflare-dynamic-dns/internal/execext"
 )
 
 type ipStack interface {
@@ -35,10 +40,31 @@ func newIPManager(cfg runConfig) ipManager {
 }
 
 func (mgr ipManager) getIPFromCommand() string {
-	// Example see here: https://github.com/go-task/task/blob/51c569ef375b51782d6d390f33ef3a40fc9254f1/internal/execext/exec.go#L35
-	ip := "not implemented"
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	opts := &execext.RunCommandOptions{
+		Command: mgr.cfg.ipcmd,
+		Stdout:  &stdout,
+		Stderr:  &stderr,
+	}
+	log.WithField("command", mgr.cfg.ipcmd).Debug("Running the command")
+	if err := execext.RunCommand(context.Background(), opts); err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"stdout": stdout.String(),
+			"stderr": stderr.String(),
+		}).Fatal("Couldn't get the address from the command")
+	}
+	log.WithFields(log.Fields{
+		"stdout": stdout.String(),
+		"stderr": stderr.String(),
+	}).Debug("Command output")
+	stringIP := strings.TrimSpace(stdout.String())
+	ip := net.ParseIP(stringIP)
+	if ip == nil {
+		log.WithField("address", stringIP).Fatal("Couldn't parse the address")
+	}
 	log.WithField("address", ip).Info("Using the address from the command line")
-	return ip
+	return stringIP
 }
 
 func (mgr ipManager) getIPFromInterface() string {

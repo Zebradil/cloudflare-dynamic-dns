@@ -1,12 +1,15 @@
 module github.com/zebradil/cloudflare-dynamic-dns
 
-go 1.19
+go 1.22
+
+toolchain go1.22.5
 
 require (
 	github.com/cloudflare/cloudflare-go v0.102.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/weppos/publicsuffix-go v0.40.2
+	mvdan.cc/sh/v3 v3.9.0
 )
 
 require (
@@ -28,6 +31,7 @@ require (
 require (
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
@@ -36,6 +40,8 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.28.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
