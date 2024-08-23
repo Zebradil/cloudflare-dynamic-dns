@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
-	"github.com/weppos/publicsuffix-go/publicsuffix"
 	"sort"
 	"strings"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	log "github.com/sirupsen/logrus"
+	"github.com/weppos/publicsuffix-go/publicsuffix"
 )
 
 func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfig) {
