@@ -1,3 +1,10 @@
+## [4.2.15](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.14...4.2.15) (2024-08-18)
+
+
+### Bug Fixes
+
+* correct IP selection logic ([#127](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/127)) ([8f7c959](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/8f7c959b8a1e10a7506af23e56b0e52f34ed529c))
+
 ## [4.2.14](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.13...4.2.14) (2024-08-14)
 
 
