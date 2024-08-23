@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# If Github Action is running with debug enabled, print all commands
+# Otherwise, silence standard output
+if [[ "${RUNNER_DEBUG:-}" == "1" ]]; then
+    set -x
+else
+    exec 1>/dev/null
+fi
+
+# Replace version in flake.nix
+# If the pattern is not found, exit with code 128
+# If the version is not set, exit with code 1
+# shellcheck disable=SC2016
+sed -i -r '/(baseVersion = ")[^"]+(";)/,${s//\1'"${1:?Set version}"'\2/;b};$q128' flake.nix
+
+# Run nix-update to update vendorHash
+time nix run github:Mic92/nix-update -- --flake cloudflare-dynamic-dns --version=skip
