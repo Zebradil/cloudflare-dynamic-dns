@@ -1,0 +1,25 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:base",
+    "helpers:pinGitHubActionDigests",
+    "schedule:nonOfficeHours",
+  ],
+  // Rebase PRs if needed even if there are commits from other bots
+  gitIgnoredAuthors: [
+    "renovate[bot]@users.noreply.github.com",
+    "github-actions[bot]@users.noreply.github.com",
+  ],
+  packageRules: [
+    {
+      "matchFileNames": ["Dockerfile"],
+      "matchDepNames": ["alpine"],
+      "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      matchUpdateTypes: ["minor", "patch", "pin", "digest"],
+      automerge: true,
+    },
+  ],
+}
