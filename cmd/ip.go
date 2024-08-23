@@ -1,16 +1,22 @@
 package cmd
 
 import (
+	"bytes"
+	"context"
 	"net"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/zebradil/cloudflare-dynamic-dns/internal/execext"
 )
 
 type ipStack interface {
 	checkIPStack(net.IP) bool
 	getBaseScore(net.IP) uint16
 	logIP(net.IP)
+	String() string
 }
 
 type ipManager struct {
@@ -20,7 +26,15 @@ type ipManager struct {
 
 type ipv4Stack struct{}
 
+func (s ipv4Stack) String() string {
+	return "IPv4"
+}
+
 type ipv6Stack struct{}
+
+func (s ipv6Stack) String() string {
+	return "IPv6"
+}
 
 func newIPManager(cfg runConfig) ipManager {
 	switch cfg.stack {
@@ -34,8 +48,54 @@ func newIPManager(cfg runConfig) ipManager {
 	}
 }
 
-func (mgr ipManager) getIP() string {
-	ips := mgr.getAllStackIPs()
+func (mgr ipManager) getIPFromCommand() string {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	opts := &execext.RunCommandOptions{
+		Command: mgr.cfg.ipcmd,
+		Stdout:  &stdout,
+		Stderr:  &stderr,
+	}
+	log.WithField("command", mgr.cfg.ipcmd).Debug("Running the command")
+	if err := execext.RunCommand(context.Background(), opts); err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"stdout": stdout.String(),
+			"stderr": stderr.String(),
+		}).Fatal("Couldn't get the address from the command")
+	}
+	log.WithFields(log.Fields{
+		"stdout": stdout.String(),
+		"stderr": stderr.String(),
+	}).Debug("Command output")
+	IPs := []net.IP{}
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		ip := net.ParseIP(strings.TrimSpace(line))
+		if ip == nil {
+			log.WithField("address", line).Warn("Couldn't parse the address")
+			continue
+		}
+		if mgr.checkIPStack(ip) {
+			log.WithField("address", ip).Debug("Found a suitable address")
+			IPs = append(IPs, ip)
+		} else {
+			log.WithFields(log.Fields{
+				"address": ip,
+				"stack":   mgr.ipStack,
+			}).Debug("The address doesn't belong to the stack")
+		}
+	}
+	if len(IPs) == 0 {
+		log.Fatal("No suitable addresses found")
+	}
+	log.WithField("addresses", IPs).Debug("Found addresses")
+	return mgr.selectOneFromIPs(IPs)
+}
+
+func (mgr ipManager) getIPFromInterface() string {
+	return mgr.selectOneFromIPs(mgr.getAllStackIPs())
+}
+
+func (mgr ipManager) selectOneFromIPs(ips []net.IP) string {
 	ip := mgr.pickIP(ips)
 	if ip == nil {
 		log.Fatal("No suitable addresses found")

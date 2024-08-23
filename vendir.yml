@@ -1,0 +1,13 @@
+apiVersion: vendir.k14s.io/v1alpha1
+kind: Config
+directories:
+  - path: internal/execext
+    lazy: true
+    contents:
+      - path: .
+        git:
+          url: https://github.com/go-task/task
+          ref: main
+        includePaths:
+          - internal/execext/*
+        newRootPath: internal/execext

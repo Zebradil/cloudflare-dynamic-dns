@@ -15,21 +15,30 @@ import (
 )
 
 const longDescription = `
-Selects an address from the specified network interface and updates A or AAAA
-records at Cloudflare for the configured domains. Supports both IPv4 and IPv6.
+Selects an address from the specified network interface or via an external
+command and updates A or AAAA records at Cloudflare for the configured domains.
+Supports both IPv4 and IPv6.
 
 Required configuration options
 --------------------------------------------------------------------------------
 
 --iface:   network interface name to look up for an address
+  or
+--ipcmd:   shell command to run to get the address, should return one address
+           per line. Uses https://github.com/mvdan/sh as the shell.
+           Examples:
+             - curl -fsSL https://api6.ipify.org
+             - echo -e "127.0.0.1\n127.0.0.2"
+
 --domains: one or more domain names to assign the address to
 --token:   Cloudflare API token with edit access rights to the DNS zone
 
 IPv6 address selection
 --------------------------------------------------------------------------------
 
-When multiple IPv6 addresses are found on the interface, the following rules are
-used to select the one to use:
+When multiple IPv6 addresses are found on the interface or received from the
+external command (e.g., when using --ipcmd), the following rules are used to
+select the one to use:
     1. Only global unicast addresses (GUA) and unique local addresses (ULA) are
        considered.
     2. GUA addresses are preferred over ULA addresses.
@@ -41,8 +50,9 @@ used to select the one to use:
 IPv4 address selection
 --------------------------------------------------------------------------------
 
-When multiple IPv4 addresses are found on the interface, the following rules are
-used to select the one to use:
+When multiple IPv4 addresses are found on the interface or received from the
+external command (e.g., when using --ipcmd), the following rules are used to
+select the one to use:
     1. All IPv4 addresses are considered.
     2. Public addresses are preferred over Shared Address Space (RFC 6598)
        addresses.
@@ -104,7 +114,10 @@ $HOME/.cloudflare-dynamic-dns.yaml. The config file location can be overridden
 using the --config flag. The config file format is YAML. The following options
 are supported (with example values):
 
+    # === required fields
+    # either iface or ipcmd must be specified
     iface: eth0
+    # ipcmd: curl -fsSL https://api6.ipify.org
     token: cloudflare-api-token
     domains:
       - example.com
@@ -138,6 +151,7 @@ For example:
 
     CFDDNS_CONFIG=/path/to/config.yaml
     CFDDNS_IFACE=eth0
+    CFDDNS_IPCMD='curl -fsSL https://api6.ipify.org'
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
     CFDDNS_STACK=ipv6
@@ -162,6 +176,7 @@ type runConfig struct {
 	domains         []string
 	hostID          string
 	iface           string
+	ipcmd           string
 	multihost       bool
 	prioritySubnets []string
 	proxy           string
@@ -240,6 +255,10 @@ the format: "host-id (managed by cloudflare-dynamic-dns)"`)
 	rootCmd.
 		Flags().
 		String("iface", "", "Network interface to look up for an address.")
+
+	rootCmd.
+		Flags().
+		String("ipcmd", "", "External command to run to get the address.")
 
 	rootCmd.
 		Flags().
@@ -323,6 +342,7 @@ func collectConfiguration() runConfig {
 		domains          = viper.GetStringSlice("domains")
 		hostID           = viper.GetString("host-id")
 		iface            = viper.GetString("iface")
+		ipcmd            = viper.GetString("ipcmd")
 		multihost        = viper.GetBool("multihost")
 		prioritySubnets  = viper.GetStringSlice("priority-subnets")
 		proxy            = viper.GetString("proxy")
@@ -368,7 +388,11 @@ func collectConfiguration() runConfig {
 	if stateFileEnabled && stateFilepath == "" {
 		domainHash := fnv.New64a()
 		domainHash.Write([]byte(strings.Join(domains, " ")))
-		stateFilepath = fmt.Sprintf("%s_%s_%x", iface, stack, domainHash.Sum64())
+		prefix := "none"
+		if iface != "" {
+			prefix = iface
+		}
+		stateFilepath = fmt.Sprintf("%s_%s_%x", prefix, stack, domainHash.Sum64())
 		// If STATE_DIRECTORY is set, use it as the state file directory,
 		// otherwise use the current directory.
 		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
@@ -386,6 +410,7 @@ func collectConfiguration() runConfig {
 		domains:         domains,
 		hostID:          hostID,
 		iface:           iface,
+		ipcmd:           ipcmd,
 		multihost:       multihost,
 		prioritySubnets: prioritySubnets,
 		proxy:           proxy,
@@ -402,8 +427,12 @@ func collectConfiguration() runConfig {
 		log.Fatal("No token specified")
 	}
 
-	if iface == "" {
-		log.Fatal("No interface specified")
+	if iface == "" && ipcmd == "" {
+		log.Fatal("Neither iface nor ipcmd specified")
+	}
+
+	if iface != "" && ipcmd != "" {
+		log.Fatal("Both iface and ipcmd specified, choose one")
 	}
 
 	if len(domains) == 0 {
@@ -422,6 +451,7 @@ func logConfig(cfg runConfig) {
 		"domains":         cfg.domains,
 		"hostId":          cfg.hostID,
 		"iface":           cfg.iface,
+		"ipcmd":           cfg.ipcmd,
 		"multihost":       cfg.multihost,
 		"prioritySubnets": cfg.prioritySubnets,
 		"proxy":           cfg.proxy,
@@ -434,8 +464,14 @@ func logConfig(cfg runConfig) {
 }
 
 func run(cfg runConfig) {
+	ip := ""
 	ipMgr := newIPManager(cfg)
-	ip := ipMgr.getIP()
+
+	if cfg.ipcmd != "" {
+		ip = ipMgr.getIPFromCommand()
+	} else {
+		ip = ipMgr.getIPFromInterface()
+	}
 
 	if cfg.stateFilepath != "" && ip == ipMgr.getOldIP() {
 		log.Info("The address hasn't changed, nothing to do")
