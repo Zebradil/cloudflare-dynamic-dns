@@ -67,23 +67,35 @@ func (mgr ipManager) getIPFromCommand() string {
 		"stdout": stdout.String(),
 		"stderr": stderr.String(),
 	}).Debug("Command output")
-	stringIP := strings.TrimSpace(stdout.String())
-	ip := net.ParseIP(stringIP)
-	if ip == nil {
-		log.WithField("address", stringIP).Fatal("Couldn't parse the address")
+	IPs := []net.IP{}
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		ip := net.ParseIP(strings.TrimSpace(line))
+		if ip == nil {
+			log.WithField("address", line).Warn("Couldn't parse the address")
+			continue
+		}
+		if mgr.checkIPStack(ip) {
+			log.WithField("address", ip).Debug("Found a suitable address")
+			IPs = append(IPs, ip)
+		} else {
+			log.WithFields(log.Fields{
+				"address": ip,
+				"stack":   mgr.ipStack,
+			}).Debug("The address doesn't belong to the stack")
+		}
 	}
-	if !mgr.checkIPStack(ip) {
-		log.WithFields(log.Fields{
-			"address": stringIP,
-			"stack":   mgr.ipStack,
-		}).Fatal("The address doesn't belong to the stack")
+	if len(IPs) == 0 {
+		log.Fatal("No suitable addresses found")
 	}
-	log.WithField("address", ip).Info("Using the address from the command line")
-	return stringIP
+	log.WithField("addresses", IPs).Debug("Found addresses")
+	return mgr.selectOneFromIPs(IPs)
 }
 
 func (mgr ipManager) getIPFromInterface() string {
-	ips := mgr.getAllStackIPs()
+	return mgr.selectOneFromIPs(mgr.getAllStackIPs())
+}
+
+func (mgr ipManager) selectOneFromIPs(ips []net.IP) string {
 	ip := mgr.pickIP(ips)
 	if ip == nil {
 		log.Fatal("No suitable addresses found")
