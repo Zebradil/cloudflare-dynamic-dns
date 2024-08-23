@@ -1,3 +1,10 @@
+# [4.3.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.15...4.3.0) (2024-08-23)
+
+
+### Features
+
+* add option to get IP from command ([#132](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/132)) ([4d1c910](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/4d1c910d9ac8d49d8ea684bd9dc87af2259caf8d))
+
 ## [4.2.15](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.2.14...4.2.15) (2024-08-18)
 
 
