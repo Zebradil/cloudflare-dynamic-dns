@@ -16,6 +16,7 @@ type ipStack interface {
 	checkIPStack(net.IP) bool
 	getBaseScore(net.IP) uint16
 	logIP(net.IP)
+	String() string
 }
 
 type ipManager struct {
@@ -25,7 +26,15 @@ type ipManager struct {
 
 type ipv4Stack struct{}
 
+func (s ipv4Stack) String() string {
+	return "IPv4"
+}
+
 type ipv6Stack struct{}
+
+func (s ipv6Stack) String() string {
+	return "IPv6"
+}
 
 func newIPManager(cfg runConfig) ipManager {
 	switch cfg.stack {
@@ -62,6 +71,12 @@ func (mgr ipManager) getIPFromCommand() string {
 	ip := net.ParseIP(stringIP)
 	if ip == nil {
 		log.WithField("address", stringIP).Fatal("Couldn't parse the address")
+	}
+	if !mgr.checkIPStack(ip) {
+		log.WithFields(log.Fields{
+			"address": stringIP,
+			"stack":   mgr.ipStack,
+		}).Fatal("The address doesn't belong to the stack")
 	}
 	log.WithField("address", ip).Info("Using the address from the command line")
 	return stringIP
