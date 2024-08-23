@@ -20,21 +20,30 @@ The rest of this section is the output of `cloudflare-dynamic-dns --help`.
 <!-- BEGIN CFDDNS_USAGE -->
 <pre>
 
-Selects an address from the specified network interface and updates A or AAAA
-records at Cloudflare for the configured domains. Supports both IPv4 and IPv6.
+Selects an address from the specified network interface or via an external
+command and updates A or AAAA records at Cloudflare for the configured domains.
+Supports both IPv4 and IPv6.
 
 Required configuration options
 --------------------------------------------------------------------------------
 
 --iface:   network interface name to look up for an address
+  or
+--ipcmd:   shell command to run to get the address, should return one address
+           per line. Uses https://github.com/mvdan/sh as the shell.
+           Examples:
+             - curl -fsSL https://api6.ipify.org
+             - echo -e "127.0.0.1\n127.0.0.2"
+
 --domains: one or more domain names to assign the address to
 --token:   Cloudflare API token with edit access rights to the DNS zone
 
 IPv6 address selection
 --------------------------------------------------------------------------------
 
-When multiple IPv6 addresses are found on the interface, the following rules are
-used to select the one to use:
+When multiple IPv6 addresses are found on the interface or received from the
+external command (e.g., when using --ipcmd), the following rules are used to
+select the one to use:
     1. Only global unicast addresses (GUA) and unique local addresses (ULA) are
        considered.
     2. GUA addresses are preferred over ULA addresses.
@@ -46,8 +55,9 @@ used to select the one to use:
 IPv4 address selection
 --------------------------------------------------------------------------------
 
-When multiple IPv4 addresses are found on the interface, the following rules are
-used to select the one to use:
+When multiple IPv4 addresses are found on the interface or received from the
+external command (e.g., when using --ipcmd), the following rules are used to
+select the one to use:
     1. All IPv4 addresses are considered.
     2. Public addresses are preferred over Shared Address Space (RFC 6598)
        addresses.
@@ -109,7 +119,10 @@ $HOME/.cloudflare-dynamic-dns.yaml. The config file location can be overridden
 using the --config flag. The config file format is YAML. The following options
 are supported (with example values):
 
+    # === required fields
+    # either iface or ipcmd must be specified
     iface: eth0
+    # ipcmd: curl -fsSL https://api6.ipify.org
     token: cloudflare-api-token
     domains:
       - example.com
@@ -143,6 +156,7 @@ For example:
 
     CFDDNS_CONFIG=/path/to/config.yaml
     CFDDNS_IFACE=eth0
+    CFDDNS_IPCMD='curl -fsSL https://api6.ipify.org'
     CFDDNS_TOKEN=cloudflare-api-token
     CFDDNS_DOMAINS='example.com *.example.com'
     CFDDNS_STACK=ipv6
@@ -166,6 +180,7 @@ Flags:
                                    Must be a valid DNS label. It is stored in the Cloudflare DNS comments field in
                                    the format: "host-id (managed by cloudflare-dynamic-dns)"
       --iface string               Network interface to look up for an address.
+      --ipcmd string               External command to run to get the address.
       --log-level string           Sets logging level: trace, debug, info, warning, error, fatal, panic. (default "info")
       --multihost                  Enable multihost mode.
                                    In this mode it is possible to assign multiple addresses to a single domain.

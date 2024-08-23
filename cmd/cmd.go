@@ -24,7 +24,11 @@ Required configuration options
 
 --iface:   network interface name to look up for an address
   or
---ipcmd:   external command to run to get the address
+--ipcmd:   shell command to run to get the address, should return one address
+           per line. Uses https://github.com/mvdan/sh as the shell.
+           Examples:
+             - curl -fsSL https://api6.ipify.org
+             - echo -e "127.0.0.1\n127.0.0.2"
 
 --domains: one or more domain names to assign the address to
 --token:   Cloudflare API token with edit access rights to the DNS zone
