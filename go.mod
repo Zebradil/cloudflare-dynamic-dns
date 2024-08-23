@@ -2,7 +2,7 @@ module github.com/zebradil/cloudflare-dynamic-dns
 
 go 1.22
 
-toolchain go1.22.5
+toolchain go1.23.0
 
 require (
 	github.com/cloudflare/cloudflare-go v0.102.0
