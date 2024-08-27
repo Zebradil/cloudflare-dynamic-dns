@@ -1,7 +1,7 @@
-{ pkgs }:
+{ pkgs, package }:
 
 pkgs.mkShell {
-  packages = with pkgs; [
+  packages = (with pkgs; [
     gnused
     go
     go-task
@@ -12,5 +12,7 @@ pkgs.mkShell {
     gosec
     nix-update
     ytt
+  ]) ++ [
+    package
   ];
 }
