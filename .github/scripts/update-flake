@@ -14,7 +14,7 @@ fi
 # If the pattern is not found, exit with code 128
 # If the version is not set, exit with code 1
 # shellcheck disable=SC2016
-sed -i -r '/(baseVersion = ")[^"]+(";)/,${s//\1'"${1:?Set version}"'\2/;b};$q128' flake.nix
+sed -i -r '/(baseVersion = ")[^"]+(";)/,${s//\1'"${1:?Set version}"'\2/;b};$q128' package.nix
 
 # Run nix-update to update vendorHash
 time nix run github:Mic92/nix-update -- --flake cloudflare-dynamic-dns --version=skip
