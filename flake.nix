@@ -21,10 +21,6 @@
       packages.default = package;
       packages.cloudflare-dynamic-dns = package;
 
-      apps.default = flake-utils.lib.mkApp {
-        drv = package;
-      };
-
       devShells.default = import ./shell.nix {inherit pkgs package;};
     });
 }
