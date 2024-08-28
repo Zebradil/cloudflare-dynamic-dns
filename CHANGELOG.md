@@ -1,3 +1,10 @@
+## [4.3.2](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.1...4.3.2) (2024-08-28)
+
+
+### Bug Fixes
+
+* **release:** rename commited file flake -> package ([ac4cb0b](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/ac4cb0b0f459e127d2416e9ce6f81734964ad5be))
+
 ## [4.3.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.0...4.3.1) (2024-08-28)
 
 
