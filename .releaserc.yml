@@ -4,11 +4,11 @@ branches:
 plugins:
   - '@semantic-release/commit-analyzer'
   - - '@semantic-release/exec'
-    - prepareCmd: .github/scripts/update-flake ${nextRelease.version}
+    - prepareCmd: .github/scripts/update-flake-version ${nextRelease.version}
   - '@semantic-release/release-notes-generator'
   - '@semantic-release/changelog'
   - - '@semantic-release/git'
     - assets:
         - CHANGELOG.md
-        - flake.nix
+        - package.nix
 tagFormat: '${version}'
