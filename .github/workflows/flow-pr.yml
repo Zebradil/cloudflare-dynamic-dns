@@ -28,6 +28,6 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Try to update nix flake
-        run: ./.github/scripts/update-flake pr-${{ github.event.pull_request.number }}
+        run: ./.github/scripts/update-flake-version pr-${{ github.event.pull_request.number }}
       - name: Print changes
         run: git diff
