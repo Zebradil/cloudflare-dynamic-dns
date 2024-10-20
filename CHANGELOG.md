@@ -1,3 +1,10 @@
+## [4.3.7](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.6...4.3.7) (2024-10-20)
+
+
+### Bug Fixes
+
+* **deps:** update module mvdan.cc/sh/v3 to v3.10.0 ([9966c53](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/9966c5303b8b4aa437c1159b64f5c513aa0cbd5c))
+
 ## [4.3.6](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.5...4.3.6) (2024-10-09)
 
 
