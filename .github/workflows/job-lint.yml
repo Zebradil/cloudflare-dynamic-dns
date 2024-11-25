@@ -14,7 +14,7 @@ jobs:
           go-version: "1.21"
           cache: false
       - name: Install gofumpt
-        uses: jaxxstorm/action-install-gh-release@7f2440a9a41f74262d8f6433da138c799799a969 # v1.13.0
+        uses: jaxxstorm/action-install-gh-release@cd6b2b78ad38bdd294341cda064ec0692b06215b # v1.14.0
         with:
           repo: mvdan/gofumpt
           tag: v0.5.0
