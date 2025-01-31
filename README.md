@@ -249,6 +249,10 @@ nix-shell -p cloudflare-dynamic-dns
 
 > [!NOTE]  
 > The version in Nixpkgs is falling behind the latest release. If you need the latest version, use the flake.
+>
+> ```shell
+> nix shell 'github:Zebradil/cloudflare-dynamic-dns/main#cloudflare-dynamic-dns'
+> ```
 
 ### Manual
 
