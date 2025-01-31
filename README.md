@@ -238,6 +238,18 @@ docker pull ghcr.io/zebradil/cloudflare-dynamic-dns:latest
 See the [latest release page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases/latest) for the full list of
 packages.
 
+### Nix
+
+The package is available in the Nixpkgs repository under the name
+[`cloudflare-dynamic-dns`](https://search.nixos.org/packages?channel=unstable&show=cloudflare-dynamic-dns&from=0&size=50&sort=relevance&type=packages&query=cloudflare-dynamic-dns).
+
+```shell
+nix-shell -p cloudflare-dynamic-dns
+```
+
+> [!NOTE]  
+> The version in Nixpkgs is falling behind the latest release. If you need the latest version, use the flake.
+
 ### Manual
 
 Download the archive for your OS from the [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases).
