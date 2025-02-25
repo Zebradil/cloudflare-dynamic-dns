@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
         with:
-          go-version: "1.21"
+          go-version-file: ./go.mod
           cache: false
       - name: Install gofumpt
         uses: jaxxstorm/action-install-gh-release@cd6b2b78ad38bdd294341cda064ec0692b06215b # v1.14.0
