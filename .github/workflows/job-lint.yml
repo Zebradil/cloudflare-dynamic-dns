@@ -20,7 +20,7 @@ jobs:
         uses: jaxxstorm/action-install-gh-release@cd6b2b78ad38bdd294341cda064ec0692b06215b # v1.14.0
         with:
           repo: mvdan/gofumpt
-          tag: v0.5.0
+          tag: v0.7.0
           cache: enable
           extension-matching: nah
           rename-to: gofumpt
