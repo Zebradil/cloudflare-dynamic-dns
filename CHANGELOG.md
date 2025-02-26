@@ -1,3 +1,10 @@
+## [4.3.17](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.16...4.3.17) (2025-02-26)
+
+
+### Bug Fixes
+
+* base container image off Alpine with curl ([#194](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/194)) ([04faeac](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/04faeac10f8a07109f0d4eacd432b1b96a28bfd6)), closes [#191](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/191)
+
 ## [4.3.16](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.15...4.3.16) (2025-02-26)
 
 
