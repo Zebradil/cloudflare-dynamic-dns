@@ -9,6 +9,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
         with:
           go-version-file: ./go.mod
@@ -22,9 +25,6 @@ jobs:
           extension-matching: nah
           rename-to: gofumpt
           chmod: 0700
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          fetch-depth: 0
       - name: Check code formatting
         run: |
           set -euo pipefail
