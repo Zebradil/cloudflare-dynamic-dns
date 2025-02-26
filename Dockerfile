@@ -1,4 +1,4 @@
-FROM scratch
-COPY --from=alpine:20250108 --link /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+FROM alpine:3.21.3
+RUN apk add --no-cache curl=8.12.1-r0
 COPY cloudflare-dynamic-dns /
 ENTRYPOINT ["/cloudflare-dynamic-dns"]
