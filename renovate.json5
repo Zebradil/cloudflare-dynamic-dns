@@ -1,8 +1,7 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
-    "config:base",
-    "helpers:pinGitHubActionDigests",
+    "config:best-practices",
     "schedule:nonOfficeHours",
   ],
   // Rebase PRs if needed even if there are commits from other bots
