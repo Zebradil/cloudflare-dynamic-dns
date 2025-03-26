@@ -1,3 +1,10 @@
+## [4.3.19](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.18...4.3.19) (2025-03-26)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/spf13/viper to v1.20.1 ([#210](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/210)) ([1cd6742](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/1cd67425f4bec423fddb2515c77650519cefc3f9))
+
 ## [4.3.18](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.17...4.3.18) (2025-03-17)
 
 
