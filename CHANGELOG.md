@@ -1,3 +1,10 @@
+## [4.3.21](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.20...4.3.21) (2025-08-22)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/weppos/publicsuffix-go to v0.50.0 ([#292](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/292)) ([2747396](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/274739679440c2caaab5cf1ec98d9e7ddd7ea0c4))
+
 ## [4.3.20](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.19...4.3.20) (2025-07-06)
 
 
