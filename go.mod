@@ -6,6 +6,7 @@ toolchain go1.25.0
 
 require (
 	github.com/cloudflare/cloudflare-go v0.115.0
+	github.com/cloudflare/cloudflare-go/v5 v5.1.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	github.com/weppos/publicsuffix-go v0.50.0
