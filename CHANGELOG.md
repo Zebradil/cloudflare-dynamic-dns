@@ -1,3 +1,10 @@
+## [4.3.23](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.22...4.3.23) (2025-09-06)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/cloudflare/cloudflare-go to v0.116.0 ([#303](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/303)) ([ead0e99](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/ead0e99c1416f39824a879deca0ddc31b8d962cc))
+
 ## [4.3.22](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.21...4.3.22) (2025-09-02)
 
 
