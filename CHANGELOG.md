@@ -1,3 +1,10 @@
+## [4.3.26](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.25...4.3.26) (2025-12-04)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/spf13/cobra to v1.10.2 ([#352](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/352)) ([2c11e8b](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/2c11e8bcc470c79cd47381427900d6c9d8a02a57))
+
 ## [4.3.25](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.24...4.3.25) (2025-11-18)
 
 
