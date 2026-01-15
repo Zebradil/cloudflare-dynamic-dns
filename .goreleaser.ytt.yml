@@ -73,8 +73,14 @@ builds:
     targets:
       #@ for/end os, arch, arm in targets:
       -  #@ make_target(os, arch, arm)
+upx:
+  - enabled: true
+    goos:
+      - linux
+      - windows
+    lzma: true
 archives:
-  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
     format_overrides:
       - goos: windows
         format: zip
@@ -83,17 +89,17 @@ archives:
       - README.md
       - systemd/*
 checksum:
-  name_template: "checksums.txt"
+  name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  name_template: '{{ incpatch .Version }}-next'
 aurs:
   - name: #@ project_name + "-bin"
     homepage: #@ url
     description: #@ description
     maintainers:
       -  #@ maintainer
-    license: "MIT"
-    private_key: "{{ .Env.AUR_SSH_KEY }}"
+    license: 'MIT'
+    private_key: '{{ .Env.AUR_SSH_KEY }}'
     git_url: #@ "ssh://aur@aur.archlinux.org/{}-bin.git".format(project_name)
     #@yaml/text-templated-strings
     package: |-

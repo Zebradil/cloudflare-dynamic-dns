@@ -22,6 +22,12 @@ builds:
   - darwin_arm64
   - windows_amd64
   - windows_386
+upx:
+- enabled: true
+  goos:
+  - linux
+  - windows
+  lzma: true
 archives:
 - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
   format_overrides:
