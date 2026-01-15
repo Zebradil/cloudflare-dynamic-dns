@@ -32,7 +32,8 @@ archives:
 - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
   format_overrides:
   - goos: windows
-    format: zip
+    formats:
+    - zip
   files:
   - LICENSE
   - README.md
@@ -40,7 +41,7 @@ archives:
 checksum:
   name_template: checksums.txt
 snapshot:
-  name_template: '{{ incpatch .Version }}-next'
+  version_template: '{{ incpatch .Version }}-next'
 aurs:
 - name: cloudflare-dynamic-dns-bin
   homepage: https://github.com/zebradil/cloudflare-dynamic-dns
