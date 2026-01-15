@@ -1,3 +1,10 @@
+# [4.4.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.28...4.4.0) (2026-01-15)
+
+
+### Features
+
+* **release:** enable upx compression for linux and windows binaries ([#370](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/370)) ([1d6b882](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/1d6b882e3a36f5b7f455d1f8d7d96c2ff6a93689))
+
 ## [4.3.28](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.27...4.3.28) (2026-01-15)
 
 
