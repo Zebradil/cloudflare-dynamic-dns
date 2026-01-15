@@ -2,7 +2,7 @@
   pkgs,
   self,
 }: let
-  baseVersion = "4.4.0";
+  baseVersion = "4.4.1";
   commit = self.shortRev or self.dirtyShortRev or "unknown";
   version = "${baseVersion}-${commit}";
 in

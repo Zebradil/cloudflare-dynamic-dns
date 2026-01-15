@@ -1,3 +1,10 @@
+## [4.4.1](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.4.0...4.4.1) (2026-01-15)
+
+
+### Bug Fixes
+
+* **release:** do not pin curl version in Dockerfile ([3ed78d7](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/3ed78d7cdbfcc9c709b23b2461b82119d1cdddd1))
+
 # [4.4.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.3.28...4.4.0) (2026-01-15)
 
 
