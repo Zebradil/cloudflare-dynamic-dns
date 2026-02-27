@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'chore(deps): bump mvdan.cc/sh/v3 from 3.8.0 to 3.9.0 (#1765)...'
-      sha: 0941de3318ba2cd8e8611acc4e225b0bea5c817b
+      commitTitle: 'docs(readme): update `|` to `•`'
+      sha: 60a808ca2336023b27a2fabb63a07270f3ab5fed
       tags:
-      - v3.38.0-17-g0941de33
+      - nightly
     path: .
   path: internal/execext
 kind: LockConfig
