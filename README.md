@@ -87,9 +87,12 @@ Setting --state-file makes the program to retain the previously used address
 between runs to avoid unnecessary calls to the Cloudflare API.
 
 The value is used as the state file path. When used with an empty value, the
-state file is named after the interface name and the domains, and is stored
-either in the current directory or in the directory specified by the
-STATE_DIRECTORY environment variable.
+state file name is derived from the interface name (or "none" for --ipcmd), the
+IP stack, a hash of the domain names, and a hash of DNS-record-affecting
+settings (proxy, ttl, multihost, host-id). It is stored either in the current
+directory or in the directory specified by the STATE_DIRECTORY environment
+variable. Changing any of those settings produces a different state file name,
+which triggers a fresh DNS update on the next run.
 
 The STATE_DIRECTORY environment variable is automatically set by systemd. It
 can be set manually when running the program outside of systemd.
@@ -356,7 +359,7 @@ This way (via running multiple timers) you can use multiple configurations at th
 By default, a timer is triggered one minute after boot and then every 5 minutes. It is not configurable currently.
 
 State files are used to avoid unnecessary requests to Cloudflare API.
-They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variables in corresponding config files (`iface` and a hash of `domains`).
+They're created in `/var/lib/cloudflare-dynamic-dns/` and named using configuration variables in corresponding config files: the interface name (`iface`), the IP stack, a hash of `domains`, and a hash of DNS-record-affecting settings (`proxy`, `ttl`, `multihost`, `host-id`). Changing any of those settings produces a new state file name, triggering a fresh DNS update on the next run.
 A state file contains an address which was set in a Cloudflare DNS AAAA or A record during the last successful run.
 If the current address is the same as the one in the state file, no additional API requests are done.
 

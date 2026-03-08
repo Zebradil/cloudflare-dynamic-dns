@@ -82,9 +82,12 @@ Setting --state-file makes the program to retain the previously used address
 between runs to avoid unnecessary calls to the Cloudflare API.
 
 The value is used as the state file path. When used with an empty value, the
-state file is named after the interface name and the domains, and is stored
-either in the current directory or in the directory specified by the
-STATE_DIRECTORY environment variable.
+state file name is derived from the interface name (or "none" for --ipcmd), the
+IP stack, a hash of the domain names, and a hash of DNS-record-affecting
+settings (proxy, ttl, multihost, host-id). It is stored either in the current
+directory or in the directory specified by the STATE_DIRECTORY environment
+variable. Changing any of those settings produces a different state file name,
+which triggers a fresh DNS update on the next run.
 
 The STATE_DIRECTORY environment variable is automatically set by systemd. It
 can be set manually when running the program outside of systemd.
@@ -388,11 +391,17 @@ func collectConfiguration() runConfig {
 	if stateFileEnabled && stateFilepath == "" {
 		domainHash := fnv.New64a()
 		domainHash.Write([]byte(strings.Join(domains, " ")))
+
+		configHash := fnv.New64a()
+		if _, hashErr := fmt.Fprintf(configHash, "proxy=%s,ttl=%d,multihost=%t,host-id=%s", proxy, ttl, multihost, hostID); hashErr != nil {
+			log.WithError(hashErr).Fatal("Can't calculate config hash")
+		}
+
 		prefix := "none"
 		if iface != "" {
 			prefix = iface
 		}
-		stateFilepath = fmt.Sprintf("%s_%s_%x", prefix, stack, domainHash.Sum64())
+		stateFilepath = fmt.Sprintf("%s_%s_%x_%x", prefix, stack, domainHash.Sum64(), configHash.Sum64())
 		// If STATE_DIRECTORY is set, use it as the state file directory,
 		// otherwise use the current directory.
 		if stateDir := os.Getenv("STATE_DIRECTORY"); stateDir != "" {
