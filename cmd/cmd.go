@@ -393,7 +393,9 @@ func collectConfiguration() runConfig {
 		domainHash.Write([]byte(strings.Join(domains, " ")))
 
 		configHash := fnv.New64a()
-		fmt.Fprintf(configHash, "proxy=%s,ttl=%d,multihost=%t,host-id=%s", proxy, ttl, multihost, hostID)
+		if _, hashErr := fmt.Fprintf(configHash, "proxy=%s,ttl=%d,multihost=%t,host-id=%s", proxy, ttl, multihost, hostID); hashErr != nil {
+			log.WithError(hashErr).Fatal("Can't calculate config hash")
+		}
 
 		prefix := "none"
 		if iface != "" {
