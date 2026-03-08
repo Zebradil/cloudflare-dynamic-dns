@@ -1,3 +1,10 @@
+## [4.4.3](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.4.2...4.4.3) (2026-03-08)
+
+
+### Bug Fixes
+
+* include optional parameters in cache key generation ([#400](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/400)) ([2dc0f78](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/2dc0f785ee01b60edb03d176a0202fa469795d94))
+
 ## [4.4.2](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.4.1...4.4.2) (2026-03-04)
 
 
