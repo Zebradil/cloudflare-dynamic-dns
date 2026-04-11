@@ -2,10 +2,11 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'chore(deps): bump mvdan.cc/sh/v3 from 3.8.0 to 3.9.0 (#1765)...'
-      sha: 0941de3318ba2cd8e8611acc4e225b0bea5c817b
+      commitTitle: 'chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from
+        1.97.1 to 1.97.3 (#2778)...'
+      sha: 8fa9dc04aca4a372bd4c5a7ba84a2bc3e7eab82a
       tags:
-      - v3.38.0-17-g0941de33
+      - nightly
     path: .
   path: internal/execext
 kind: LockConfig
