@@ -49,7 +49,7 @@ Single cobra command (no subcommands). Entry: `main.go` → `cmd.NewRootCmd(vers
 
 - **`.goreleaser.yml` is generated** — edit `.goreleaser.ytt.yml` and run `task misc:build:goreleaser-config` (`ytt`). Never edit `.goreleaser.yml` by hand.
 - **README usage section is generated** — the block between `<!-- BEGIN CFDDNS_USAGE -->` and `<!-- END CFDDNS_USAGE -->` is injected by `scripts/update_readme` (`task docs:update-readme`). The source text is `longDescription` in `cmd/cmd.go`.
-- **`internal/execext` is vendored, not a go-modules dep** — update via `vendir sync` from repo root; commit both the synced files and `vendir.lock.yml`.
+- **`internal/execext` is vendored, not a go-modules dep** — update via `vendir sync` from repo root; commit both the synced files and `vendir.lock.yml`. The `ref:` in `vendir.yml` is pinned to a specific SHA (not `main`) because upstream `nightly` has introduced imports from `go-task`-internal packages (`github.com/go-task/task/v3/internal/env`, `github.com/go-task/task/v3/errors`) that cannot be consumed cross-module. When bumping the pin, verify `go build ./...` still succeeds before committing.
 - **Conventional Commits required** — enforced by lefthook (commit-msg) and CI PR-title linter. Semantic-release uses them to determine the next version.
 - **Release pipeline** — push to `main` → semantic-release → updates `CHANGELOG.md` + bumps `nix/package.nix` (`nix-update` regenerates `vendorHash`) → tags without `v` prefix (`tagFormat: '${version}'`) → goreleaser publishes binaries, GHCR images, AUR, nfpm packages.
 - **Formatting** — `gofumpt` (stricter than `gofmt`) + `goimports-reviser -set-alias`. Expect aliased imports: `log "github.com/sirupsen/logrus"`, `cloudflare "github.com/cloudflare/cloudflare-go"`.

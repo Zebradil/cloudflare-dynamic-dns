@@ -151,7 +151,9 @@ func (mgr ipManager) score(ip net.IP) uint64 {
 			continue
 		}
 		if ipNet.Contains(ip) {
-			score += uint64(len(mgr.cfg.prioritySubnets)-order) << 16
+			if bonus := len(mgr.cfg.prioritySubnets) - order; bonus > 0 {
+				score += uint64(bonus) << 16
+			}
 			break
 		}
 	}
@@ -232,7 +234,7 @@ func (mgr ipManager) getOldIP() string {
 }
 
 func (mgr ipManager) setOldIP(ip string) {
-	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o644)
+	err := os.WriteFile(mgr.cfg.stateFilepath, []byte(ip), 0o600)
 	if err != nil {
 		log.WithError(err).Error("Can't write state file")
 	}

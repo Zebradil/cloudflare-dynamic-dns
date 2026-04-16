@@ -7,7 +7,7 @@ directories:
       - path: .
         git:
           url: https://github.com/go-task/task
-          ref: main
+          ref: 0941de3318ba2cd8e8611acc4e225b0bea5c817b
         includePaths:
           - internal/execext/*
         newRootPath: internal/execext
