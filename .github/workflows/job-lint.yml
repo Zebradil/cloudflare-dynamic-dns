@@ -18,7 +18,7 @@ jobs:
         with:
           go-version-file: ./go.mod
       - name: Install gofumpt
-        run: go install mvdan.cc/gofumpt@latest
+        run: go install mvdan.cc/gofumpt@v0.9.2
       - name: Check code formatting
         run: |
           set -euo pipefail

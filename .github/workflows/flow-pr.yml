@@ -6,6 +6,9 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/flow-pr.yml'
+      - '.github/workflows/job-lint.yml'
+      - '.github/workflows/job-test.yml'
       - 'main.go'
       - 'go.mod'
       - 'go.sum'
