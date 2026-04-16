@@ -390,7 +390,9 @@ func collectConfiguration() runConfig {
 
 	if stateFileEnabled && stateFilepath == "" {
 		domainHash := fnv.New64a()
-		domainHash.Write([]byte(strings.Join(domains, " ")))
+		if _, hashErr := fmt.Fprint(domainHash, strings.Join(domains, " ")); hashErr != nil {
+			log.WithError(hashErr).Fatal("Can't calculate domain hash")
+		}
 
 		configHash := fnv.New64a()
 		if _, hashErr := fmt.Fprintf(configHash, "proxy=%s,ttl=%d,multihost=%t,host-id=%s", proxy, ttl, multihost, hostID); hashErr != nil {
