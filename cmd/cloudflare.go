@@ -53,7 +53,7 @@ func processDomain(api *cloudflare.Client, domain string, addr string, cfg runCo
 	// first. Cloudflare API doesn't allow creating multiple records with the
 	// same address, which may happen in the multihost mode.
 	sort.Slice(existingDNSRecords, func(i, j int) bool {
-		return existingDNSRecords[i].Content == addr
+		return existingDNSRecords[i].Content == addr && existingDNSRecords[j].Content != addr
 	})
 	for _, record := range existingDNSRecords {
 		log.WithFields(log.Fields{
