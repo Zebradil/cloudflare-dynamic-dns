@@ -11,7 +11,7 @@ pkgs.buildGoModule {
   inherit version;
   pname = "cloudflare-dynamic-dns";
   src = ./..;
-  vendorHash = "sha256-Pu73TKBgEgLhUktnY4o/fR4KBLT2s2CUGFSf2Jo3SbQ=";
+  vendorHash = "sha256-qcJZp86ZBYrL3bWO94H2yba95oAqyYp57eRcC8U1Xog=";
 
   env.CGO_ENABLED = 0;
   ldflags = [
