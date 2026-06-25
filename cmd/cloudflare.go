@@ -5,14 +5,16 @@ import (
 	"sort"
 	"strings"
 
-	cloudflare "github.com/cloudflare/cloudflare-go"
+	cloudflare "github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/dns"
+	"github.com/cloudflare/cloudflare-go/v7/zones"
 	log "github.com/sirupsen/logrus"
 	"github.com/weppos/publicsuffix-go/publicsuffix"
 )
 
-func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfig) {
+func processDomain(api *cloudflare.Client, domain string, addr string, cfg runConfig) {
 	ctx := context.Background()
-	recordType := getRecordType(cfg.stack)
+	listType := getRecordListType(cfg.stack)
 
 	zoneName, err := publicsuffix.Domain(domain)
 	if err != nil {
@@ -20,29 +22,30 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	} else {
 		log.WithField("zoneName", zoneName).Debug("Got ZoneName")
 	}
-	zoneID, err := api.ZoneIDByName(zoneName)
+
+	zoneRes, err := api.Zones.List(ctx, zones.ZoneListParams{Name: cloudflare.F(zoneName)})
 	if err != nil {
-		log.WithError(err).Fatal("Couldn't get ZoneID")
+		log.WithError(err).Fatal("Couldn't list zones")
 	}
-
-	desiredDNSRecord := cloudflare.DNSRecord{Type: recordType, Name: domain, Content: addr, TTL: cfg.ttl}
-	if cfg.multihost {
-		desiredDNSRecord.Comment = cfg.hostID
+	if len(zoneRes.Result) == 0 {
+		log.WithField("zoneName", zoneName).Fatal("No zone found")
 	}
+	zoneID := zoneRes.Result[0].ID
 
-	if cfg.proxy != "auto" {
-		desiredDNSRecord.Proxied = Ptr(cfg.proxy == "enabled")
+	dnsRecordFilter := dns.RecordListParams{
+		ZoneID: cloudflare.F(zoneID),
+		Type:   cloudflare.F(listType),
+		Name:   cloudflare.F(dns.RecordListParamsName{Exact: cloudflare.F(domain)}),
 	}
-
-	dnsRecordFilter := cloudflare.ListDNSRecordsParams{Type: recordType, Name: domain}
-	existingDNSRecords, _, err := api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), dnsRecordFilter)
+	listRes, err := api.DNS.Records.List(ctx, dnsRecordFilter)
 	if err != nil {
 		log.WithError(err).WithField("filter", dnsRecordFilter).Fatal("Couldn't get DNS records")
 	}
+	existingDNSRecords := listRes.Result
 
 	// If there are no existing records, create a new one and exit.
 	if len(existingDNSRecords) == 0 {
-		createNewDNSRecord(api, zoneID, desiredDNSRecord)
+		createNewDNSRecord(api, zoneID, domain, addr, cfg)
 		return
 	}
 
@@ -50,20 +53,20 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	// first. Cloudflare API doesn't allow creating multiple records with the
 	// same address, which may happen in the multihost mode.
 	sort.Slice(existingDNSRecords, func(i, j int) bool {
-		return existingDNSRecords[i].Content == addr
+		return existingDNSRecords[i].Content == addr && existingDNSRecords[j].Content != addr
 	})
 	for _, record := range existingDNSRecords {
 		log.WithFields(log.Fields{
 			"comment": record.Comment,
 			"content": record.Content,
 			"domain":  record.Name,
-			"proxied": *record.Proxied,
+			"proxied": record.Proxied,
 			"ttl":     record.TTL,
 			"type":    record.Type,
 		}).Debug("Found DNS record")
 	}
 
-	sameHostFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
+	sameHostFn := func(record dns.RecordResponse, cfg runConfig) bool {
 		recHost := strings.Split(record.Comment, " ")[0]
 		cfgHost := strings.Split(cfg.hostID, " ")[0]
 		return recHost == cfgHost
@@ -75,7 +78,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	//   3. has empty comment and multihost is disabled (address and possibly proxied or ttl have changed).
 	// NOTE: despite API returning empty Comment as `null`, cloudflare-go represents it as an empty string.
 	//       This can break in the future.
-	shouldUpdateFn := func(record cloudflare.DNSRecord, cfg runConfig) bool {
+	shouldUpdateFn := func(record dns.RecordResponse, cfg runConfig) bool {
 		return record.Content == addr ||
 			cfg.multihost && sameHostFn(record, cfg) ||
 			!cfg.multihost && record.Comment == ""
@@ -87,7 +90,7 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	updated := false
 	for _, record := range existingDNSRecords {
 		if !updated && shouldUpdateFn(record, cfg) {
-			updateDNSRecord(api, zoneID, record, desiredDNSRecord)
+			updateDNSRecord(api, zoneID, record, addr, cfg)
 			updated = true
 			continue
 		}
@@ -109,74 +112,146 @@ func processDomain(api *cloudflare.API, domain string, addr string, cfg runConfi
 	}
 
 	if !updated {
-		createNewDNSRecord(api, zoneID, desiredDNSRecord)
+		createNewDNSRecord(api, zoneID, domain, addr, cfg)
 	}
 }
 
-func getRecordType(stack IPStack) string {
+func getRecordListType(stack IPStack) dns.RecordListParamsType {
 	if stack == ipv4 {
-		return "A"
+		return dns.RecordListParamsTypeA
 	}
 	if stack == ipv6 {
-		return "AAAA"
+		return dns.RecordListParamsTypeAAAA
 	}
 	log.WithField("stack", stack).Fatal("Invalid IP mode")
 	return ""
 }
 
-func createNewDNSRecord(api *cloudflare.API, zoneID string, desiredDNSRecord cloudflare.DNSRecord) {
+func newRecordBody(stack IPStack, name, content string, ttl int, comment string, proxied *bool) dns.RecordNewParamsBodyUnion {
+	if stack == ipv4 {
+		rec := dns.ARecordParam{
+			Name:    cloudflare.F(name),
+			Content: cloudflare.F(content),
+			Type:    cloudflare.F(dns.ARecordTypeA),
+			TTL:     cloudflare.F(dns.TTL(ttl)),
+			Comment: cloudflare.F(comment),
+		}
+		if proxied != nil {
+			rec.Proxied = cloudflare.F(*proxied)
+		}
+		return rec
+	}
+	rec := dns.AAAARecordParam{
+		Name:    cloudflare.F(name),
+		Content: cloudflare.F(content),
+		Type:    cloudflare.F(dns.AAAARecordTypeAAAA),
+		TTL:     cloudflare.F(dns.TTL(ttl)),
+		Comment: cloudflare.F(comment),
+	}
+	if proxied != nil {
+		rec.Proxied = cloudflare.F(*proxied)
+	}
+	return rec
+}
+
+func updateRecordBody(stack IPStack, name, content string, ttl int, comment string, proxied *bool) dns.RecordUpdateParamsBodyUnion {
+	if stack == ipv4 {
+		rec := dns.ARecordParam{
+			Name:    cloudflare.F(name),
+			Content: cloudflare.F(content),
+			Type:    cloudflare.F(dns.ARecordTypeA),
+			TTL:     cloudflare.F(dns.TTL(ttl)),
+			Comment: cloudflare.F(comment),
+		}
+		if proxied != nil {
+			rec.Proxied = cloudflare.F(*proxied)
+		}
+		return rec
+	}
+	rec := dns.AAAARecordParam{
+		Name:    cloudflare.F(name),
+		Content: cloudflare.F(content),
+		Type:    cloudflare.F(dns.AAAARecordTypeAAAA),
+		TTL:     cloudflare.F(dns.TTL(ttl)),
+		Comment: cloudflare.F(comment),
+	}
+	if proxied != nil {
+		rec.Proxied = cloudflare.F(*proxied)
+	}
+	return rec
+}
+
+func createNewDNSRecord(api *cloudflare.Client, zoneID string, domain, addr string, cfg runConfig) {
 	ctx := context.Background()
-	log.WithField("record", desiredDNSRecord).Info("Create new DNS record")
-	_, err := api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
-		Comment: desiredDNSRecord.Comment,
-		Content: desiredDNSRecord.Content,
-		Name:    desiredDNSRecord.Name,
-		Proxied: desiredDNSRecord.Proxied,
-		TTL:     desiredDNSRecord.TTL,
-		Type:    desiredDNSRecord.Type,
+
+	var comment string
+	if cfg.multihost {
+		comment = cfg.hostID
+	}
+
+	var proxied *bool
+	if cfg.proxy != "auto" {
+		proxied = Ptr(cfg.proxy == "enabled")
+	}
+
+	log.WithFields(log.Fields{
+		"domain":  domain,
+		"content": addr,
+	}).Info("Create new DNS record")
+	_, err := api.DNS.Records.New(ctx, dns.RecordNewParams{
+		ZoneID: cloudflare.F(zoneID),
+		Body:   newRecordBody(cfg.stack, domain, addr, cfg.ttl, comment, proxied),
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Couldn't create DNS record")
 	}
 }
 
-func updateDNSRecord(api *cloudflare.API, zoneID string, oldRecord cloudflare.DNSRecord, newRecord cloudflare.DNSRecord) {
+func updateDNSRecord(api *cloudflare.Client, zoneID string, oldRecord dns.RecordResponse, newAddr string, cfg runConfig) {
 	ctx := context.Background()
-	proxiedMatches := newRecord.Proxied == nil ||
-		(oldRecord.Proxied != nil && *oldRecord.Proxied == *newRecord.Proxied)
-	if oldRecord.Content == newRecord.Content &&
+
+	var newComment string
+	if cfg.multihost {
+		newComment = cfg.hostID
+	}
+
+	var proxied *bool
+	if cfg.proxy != "auto" {
+		proxied = Ptr(cfg.proxy == "enabled")
+	}
+
+	proxiedMatches := proxied == nil || oldRecord.Proxied == *proxied
+	if oldRecord.Content == newAddr &&
 		proxiedMatches &&
-		oldRecord.TTL == newRecord.TTL &&
-		oldRecord.Comment == newRecord.Comment {
+		int(oldRecord.TTL) == cfg.ttl &&
+		oldRecord.Comment == newComment {
 		log.WithField("record", oldRecord).Info("DNS record is up to date")
 		return
 	}
 
 	log.WithFields(log.Fields{
-		"new": newRecord,
 		"old": oldRecord,
+		"new": newAddr,
 	}).Info("Updating existing DNS record")
-	_, err := api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
-		Comment: &newRecord.Comment,
-		Content: newRecord.Content,
-		ID:      oldRecord.ID,
-		Name:    newRecord.Name,
-		Proxied: newRecord.Proxied,
-		TTL:     newRecord.TTL,
-		Type:    newRecord.Type,
+
+	_, err := api.DNS.Records.Update(ctx, oldRecord.ID, dns.RecordUpdateParams{
+		ZoneID: cloudflare.F(zoneID),
+		Body:   updateRecordBody(cfg.stack, oldRecord.Name, newAddr, cfg.ttl, newComment, proxied),
 	})
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
-			"new": newRecord,
 			"old": oldRecord,
+			"new": newAddr,
 		}).Fatal("Couldn't update DNS record")
 	}
 }
 
-func deleteDNSRecord(api *cloudflare.API, zoneID string, record cloudflare.DNSRecord) {
+func deleteDNSRecord(api *cloudflare.Client, zoneID string, record dns.RecordResponse) {
 	ctx := context.Background()
 	log.WithField("record", record).Info("Deleting DNS record")
-	err := api.DeleteDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), record.ID)
+	_, err := api.DNS.Records.Delete(ctx, record.ID, dns.RecordDeleteParams{
+		ZoneID: cloudflare.F(zoneID),
+	})
 	if err != nil {
 		log.WithError(err).WithField("record", record).Fatal("Couldn't delete DNS record")
 	}
