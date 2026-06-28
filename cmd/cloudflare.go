@@ -30,6 +30,17 @@ func processDomain(api *cloudflare.Client, domain string, addr string, cfg runCo
 	if len(zoneRes.Result) == 0 {
 		log.WithField("zoneName", zoneName).Fatal("No zone found")
 	}
+	if len(zoneRes.Result) > 1 {
+		ids := make([]string, len(zoneRes.Result))
+		for i, z := range zoneRes.Result {
+			ids[i] = z.ID
+		}
+		log.WithFields(log.Fields{
+			"zoneName": zoneName,
+			"count":    len(zoneRes.Result),
+			"zoneIDs":  ids,
+		}).Fatal("Multiple zones found for name; cannot disambiguate")
+	}
 	zoneID := zoneRes.Result[0].ID
 
 	dnsRecordFilter := dns.RecordListParams{
@@ -74,7 +85,7 @@ func processDomain(api *cloudflare.Client, domain string, addr string, cfg runCo
 
 	// Update the current record if it is either:
 	//   1. has the same address as the desired record (proxied, ttl, or comment may have changed),
-	//   2. has the same comment as the desired record and multihost is enabled (address and possibly proxied or ttl have changed),
+	//   2. has the same host-id as the desired record and multihost is enabled (address and possibly proxied or ttl have changed),
 	//   3. has empty comment and multihost is disabled (address and possibly proxied or ttl have changed).
 	// NOTE: despite API returning empty Comment as `null`, cloudflare-go represents it as an empty string.
 	//       This can break in the future.
