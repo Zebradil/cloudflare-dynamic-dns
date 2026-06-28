@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	cloudflare "github.com/cloudflare/cloudflare-go"
+	cloudflare "github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/option"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -490,10 +491,7 @@ func run(cfg runConfig) {
 		return
 	}
 
-	api, err := cloudflare.NewWithAPIToken(cfg.token)
-	if err != nil {
-		log.WithError(err).Fatal("Couldn't create API client")
-	}
+	api := cloudflare.NewClient(option.WithAPIToken(cfg.token))
 
 	for _, domain := range cfg.domains {
 		log.Info("Processing domain: ", domain)
