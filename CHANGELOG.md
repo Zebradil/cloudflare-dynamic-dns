@@ -1,3 +1,10 @@
+# [4.5.0](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.4.5...4.5.0) (2026-06-28)
+
+
+### Features
+
+* **deps:** migrate from cloudflare-go v0 to v7 ([#457](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/457)) ([7540081](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/7540081718b2a778536eb5472fdd843bb3ab449c))
+
 ## [4.4.5](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.4.4...4.4.5) (2026-05-20)
 
 
