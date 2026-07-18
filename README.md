@@ -257,6 +257,46 @@ nix-shell -p cloudflare-dynamic-dns
 > nix shell 'github:Zebradil/cloudflare-dynamic-dns/main#cloudflare-dynamic-dns'
 > ```
 
+#### NixOS / home-manager module
+
+The flake exposes `nixosModules.default` and `homeManagerModules.default`. Both
+define a `services.cloudflare-dynamic-dns` option set that runs the client on a
+systemd timer. The API token is read from a file via systemd credentials and is
+never written to the Nix store.
+
+Add the flake as an input and import the module:
+
+```nix
+{
+  inputs.cloudflare-dynamic-dns.url = "github:Zebradil/cloudflare-dynamic-dns/main";
+
+  # NixOS
+  outputs = { nixpkgs, cloudflare-dynamic-dns, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        cloudflare-dynamic-dns.nixosModules.default
+        {
+          services.cloudflare-dynamic-dns = {
+            enable = true;
+            iface = "eth0";                       # or set `ipcmd` instead
+            domains = [ "example.com" "*.example.com" ];
+            tokenFile = "/run/secrets/cloudflare-token";
+            # optional (defaults shown):
+            # stack = "ipv6";
+            # ttl = 1;
+            # interval = "5m";
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+For home-manager, import `cloudflare-dynamic-dns.homeManagerModules.default` and
+use the same `services.cloudflare-dynamic-dns` options; it installs a user
+systemd service and timer instead of system-wide ones.
+
 ### Manual
 
 Download the archive for your OS from the [releases page](https://github.com/Zebradil/cloudflare-dynamic-dns/releases).
