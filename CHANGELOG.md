@@ -1,3 +1,10 @@
+## [4.5.6](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.5.5...4.5.6) (2026-08-26)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/sirupsen/logrus to v1.10.2 ([#499](https://github.com/Zebradil/cloudflare-dynamic-dns/issues/499)) ([21bd1ce](https://github.com/Zebradil/cloudflare-dynamic-dns/commit/21bd1ce23c4123adab814ad830843e1d215e0911))
+
 ## [4.5.5](https://github.com/Zebradil/cloudflare-dynamic-dns/compare/4.5.4...4.5.5) (2026-08-21)
 
 
