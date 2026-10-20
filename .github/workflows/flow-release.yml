@@ -35,7 +35,7 @@ jobs:
           git_commit_gpgsign: true
       - name: Semantic Release
         id: semantic
-        uses: cycjimmy/semantic-release-action@03595b5eaf44910cf239ff20904cc52d410f97d4 # v8.1.2
+        uses: cycjimmy/semantic-release-action@d9bf53a078bd2f86aaffaec796dbb3d28f1b6f34 # v8.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.ZEBRADIL_BOT_GITHUB_TOKEN }}
           GIT_AUTHOR_NAME: Zebradli Bot
