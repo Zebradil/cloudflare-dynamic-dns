@@ -3,7 +3,7 @@
   self,
 }:
 let
-  baseVersion = "4.5.13";
+  baseVersion = "4.5.14";
   commit = self.shortRev or self.dirtyShortRev or "unknown";
   version = "${baseVersion}-${commit}";
 in
@@ -11,7 +11,7 @@ pkgs.buildGoModule {
   inherit version;
   pname = "cloudflare-dynamic-dns";
   src = ./..;
-  vendorHash = "sha256-vpNTEQXwdopwHEtQw35v1JASCEeRmWVa+WqsZRx+xlQ=";
+  vendorHash = "sha256-e3d9dk+jZil+XkBuAYRma4ECFGDIKkbWFvFrPHsD4d4=";
 
   env.CGO_ENABLED = 0;
   ldflags = [
