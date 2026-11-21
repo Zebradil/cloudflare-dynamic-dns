@@ -1,0 +1,62 @@
+# Weekly `nix flake update` opened as a PR, with an nvd package diff of what the update really
+# changes. Renovate does not touch flake.lock, so this PR is how nixpkgs updates reach this repo.
+#
+# The token comes from octo-sts (account policy `flake-update` in Zebradil/.github, which admits
+# only this file name on main), not GITHUB_TOKEN: a GITHUB_TOKEN-created PR fires no
+# `pull_request` events, so CI would not run on it. If the exchange fails the PR is still opened
+# with GITHUB_TOKEN, and the action says so in the PR body.
+#
+# Nothing is pushed to the binary cache.
+
+name: Update flake.lock
+
+on:
+  schedule:
+    - cron: '15 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  pr:
+    name: Open flake.lock update PR
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      # GITHUB_TOKEN fallback only; the octo-sts token carries its own permissions.
+      contents: write
+      pull-requests: write
+    steps:
+      # Before checkout, so actions/checkout bakes the push credentials into the git remote.
+      - name: Exchange OIDC token for GitHub token
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        id: sts
+        continue-on-error: true
+        with:
+          domain: sts.zebradil.dev
+          scope: ${{ github.repository_owner }}
+          identity: flake-update
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.sts.outputs.token || github.token }}
+
+      - name: Set up Nix
+        uses: zebradil/nix-ci/.github/actions/setup-nix@4051cac72e577a0903ecbcee2ffedb4e9f6ac9f1 # v3.1.0
+
+      - name: Update flake.lock and open PR
+        uses: zebradil/nix-ci/.github/actions/update-lock-pr@4051cac72e577a0903ecbcee2ffedb4e9f6ac9f1 # v3.1.0
+        with:
+          token: ${{ steps.sts.outputs.token || github.token }}
+          has-app-token: ${{ steps.sts.outputs.token != '' }}
+          branch-name: automation/flake-update
+          # Off: no branch rule requires status checks here, so auto-merge would merge unverified.
+          auto-merge: false
+          diff-targets: |
+            packages.x86_64-linux.default
